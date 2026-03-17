@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -17,6 +18,21 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/lib/game/**/*.ts'],
+      exclude: ['tests/**', 'node_modules/**'],
+      lines: 90,
+      functions: 90,
+      branches: 90,
+      statements: 90,
+    },
+  },
 })
 
 export default config
