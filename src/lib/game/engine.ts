@@ -90,7 +90,7 @@ export class GameEngine {
     const initialScene = sceneIds.length > 0 ? sceneIds[0] : ''
 
     // 获取初始状态
-    const initialState = (script.scenes as any)?.initialState || {}
+    const initialState = script.initialState || {}
     const attributes = initialState.attributes || {}
     const relationships = initialState.relationships || {}
 

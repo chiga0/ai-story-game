@@ -77,12 +77,11 @@ const createTestScript = (): Script => ({
       id: 'ending_normal',
       text: '游戏结束。',
     },
-    // 初始状态放在 scenes 中
-    initialState: {
-      attributes: { courage: 0, clue: 0 },
-      relationships: { butler: 0 },
-    },
-  } as Record<string, Scene | any>,
+  } as Record<string, Scene>,
+  initialState: {
+    attributes: { courage: 0, clue: 0 },
+    relationships: { butler: 0 },
+  },
   endings: [
     {
       id: 'good',
@@ -127,6 +126,7 @@ describe('GameEngine', () => {
       const scriptWithNoInitial = {
         ...testScript,
         scenes: { start: { id: 'start', text: 'test' } },
+        initialState: undefined,
       } as unknown as Script
 
       const state = await engine.init(scriptWithNoInitial)
