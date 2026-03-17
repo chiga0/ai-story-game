@@ -81,7 +81,7 @@ export const mysteryCastleScript = {
         },
       ],
     },
-    castle_history: {
+    'castle-history': {
       id: 'castle-history',
       text: '"这座古堡已有三百年历史，"亨利缓缓说道，"威廉爵士是最后一位继承人。他的去世...确实令人遗憾。"',
       speaker: 'butler',
@@ -117,7 +117,7 @@ export const mysteryCastleScript = {
         },
       ],
     },
-    hall_examine: {
+    'hall-examine': {
       id: 'hall-examine',
       text: '你注意到一幅画像似乎被移动过。仔细观察后，你发现画像后面有一个小保险箱。',
       choices: [
@@ -134,7 +134,7 @@ export const mysteryCastleScript = {
         },
       ],
     },
-    maid_conversation: {
+    'maid-conversation': {
       id: 'maid-conversation',
       text: '女仆安娜看起来很紧张。"先生，我...我看到一些奇怪的事情..."她压低声音说道。',
       speaker: 'maid',
@@ -185,7 +185,7 @@ export const mysteryCastleScript = {
         },
       ],
     },
-    ending_truth: {
+    'ending-truth': {
       id: 'ending-truth',
       text: '你终于揭开了真相！管家亨利和医生华生合谋杀害了威廉爵士，为了古堡地下隐藏的宝藏。你成功将他们绳之以法。',
       isEnding: true,
@@ -268,7 +268,7 @@ export const lostInSpaceScript = {
         },
       ],
     },
-    damage_report: {
+    'damage-report': {
       id: 'damage-report',
       text: '"主要引擎受损40%，通讯系统离线。正在尝试修复..." ARIA的指示灯闪烁着不寻常的频率。',
       speaker: 'ai',
@@ -356,7 +356,7 @@ export const dragonValleyScript = {
         },
       ],
     },
-    valley_entrance: {
+    'valley-entrance': {
       id: 'valley-entrance',
       text: '你踏入龙之谷，空气中弥漫着硫磺的气息。远处的山洞中传来低沉的咆哮声...',
       choices: [
@@ -372,7 +372,7 @@ export const dragonValleyScript = {
         },
       ],
     },
-    dragon_meeting: {
+    'dragon-meeting': {
       id: 'dragon-meeting',
       text: '红龙伊格尼斯从洞穴中探出头，巨大的金色眼睛注视着你。"又一个贪婪的人类？"它的声音如雷鸣般回荡。',
       speaker: 'dragon',

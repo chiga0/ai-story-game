@@ -3,7 +3,7 @@
  * MVP 阶段使用 localStorage 存储
  */
 
-import type { GameState } from './game/engine'
+import type { GameState } from './engine'
 
 export interface SaveSlot {
   id: string

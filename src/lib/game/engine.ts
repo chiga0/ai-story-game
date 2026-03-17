@@ -3,7 +3,7 @@
  * 负责管理游戏状态、处理玩家选择、推进剧情、判定结局
  */
 
-import type { Script } from '../db/schema'
+import type { Script as DbScript } from '../db/schema'
 import {
   applyEffects,
   evaluateCondition,
@@ -11,6 +11,14 @@ import {
   createInitialState,
   cloneState,
 } from './state-manager'
+
+// 扩展的剧本类型，包含 initialState
+export interface Script extends Omit<DbScript, 'initialState'> {
+  initialState?: {
+    attributes?: Record<string, number>
+    relationships?: Record<string, number>
+  }
+}
 
 // 游戏状态
 export interface GameState {
