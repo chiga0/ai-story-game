@@ -5,7 +5,8 @@
 export const mysteryCastleScript = {
   id: 'mystery-castle',
   title: '神秘古堡',
-  description: '一个充满谜团的古老城堡，等待你来揭开真相。作为侦探，你需要调查威廉爵士神秘死亡的背后隐藏的秘密。',
+  description:
+    '一个充满谜团的古老城堡，等待你来揭开真相。作为侦探，你需要调查威廉爵士神秘死亡的背后隐藏的秘密。',
   genre: 'mystery',
   cover: '/images/mystery-castle.jpg',
   duration: 20,
@@ -225,7 +226,8 @@ export const mysteryCastleScript = {
 export const lostInSpaceScript = {
   id: 'lost-in-space',
   title: '星际迷途',
-  description: '你的飞船在未知星域坠毁，船员们一个接一个失踪。作为舰长，你必须找出真相并带领幸存者逃离。',
+  description:
+    '你的飞船在未知星域坠毁，船员们一个接一个失踪。作为舰长，你必须找出真相并带领幸存者逃离。',
   genre: 'scifi',
   cover: '/images/space.jpg',
   duration: 20,
@@ -312,7 +314,8 @@ export const lostInSpaceScript = {
 export const dragonValleyScript = {
   id: 'dragon-valley',
   title: '龙之谷',
-  description: '作为一名年轻的冒险者，你被选中进入传说中的龙之谷，寻找失落已久的龙族宝藏。但这里远比你想象的危险...',
+  description:
+    '作为一名年轻的冒险者，你被选中进入传说中的龙之谷，寻找失落已久的龙族宝藏。但这里远比你想象的危险...',
   genre: 'fantasy',
   cover: '/images/dragon.jpg',
   duration: 25,

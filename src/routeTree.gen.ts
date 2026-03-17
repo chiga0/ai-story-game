@@ -68,13 +68,7 @@ export interface FileRouteTypes {
   fullPaths: '/' | '/about' | '/play/$scriptId' | '/scripts/$id' | '/scripts/'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/about' | '/play/$scriptId' | '/scripts/$id' | '/scripts'
-  id:
-    | '__root__'
-    | '/'
-    | '/about'
-    | '/play/$scriptId'
-    | '/scripts/$id'
-    | '/scripts/'
+  id: '__root__' | '/' | '/about' | '/play/$scriptId' | '/scripts/$id' | '/scripts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {

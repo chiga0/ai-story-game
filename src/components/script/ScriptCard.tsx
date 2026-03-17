@@ -31,27 +31,19 @@ export function ScriptCard({
       params={{ id }}
       className="feature-card block rounded-2xl overflow-hidden border border-[var(--line)]"
     >
-      <img
-        src={coverImage}
-        alt={title}
-        className="w-full h-48 object-cover"
-      />
+      <img src={coverImage} alt={title} className="w-full h-48 object-cover" />
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
-          <span className={`px-2 py-0.5 rounded text-xs text-white ${difficultyColors[difficulty]}`}>
+          <span
+            className={`px-2 py-0.5 rounded text-xs text-white ${difficultyColors[difficulty]}`}
+          >
             {difficulty}
           </span>
-          <span className="text-xs text-[var(--sea-ink-soft)]">
-            {players} 人
-          </span>
-          <span className="text-xs text-[var(--sea-ink-soft)]">
-            {duration}
-          </span>
+          <span className="text-xs text-[var(--sea-ink-soft)]">{players} 人</span>
+          <span className="text-xs text-[var(--sea-ink-soft)]">{duration}</span>
         </div>
         <h3 className="font-semibold text-[var(--sea-ink)] mb-1">{title}</h3>
-        <p className="text-sm text-[var(--sea-ink-soft)] line-clamp-2">
-          {description}
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)] line-clamp-2">{description}</p>
       </div>
     </Link>
   )

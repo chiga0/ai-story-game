@@ -27,18 +27,12 @@ function ScriptsPage() {
         <h1 className="display-title text-3xl font-bold mt-2 text-[var(--sea-ink)]">
           选择你的故事
         </h1>
-        <p className="text-[var(--sea-ink-soft)] mt-2">
-          探索不同的剧本世界，开启你的冒险之旅
-        </p>
+        <p className="text-[var(--sea-ink-soft)] mt-2">探索不同的剧本世界，开启你的冒险之旅</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sampleScripts.map((script) => (
-          <a
-            key={script.id}
-            href={`/play/${script.id}`}
-            className="block group"
-          >
+          <a key={script.id} href={`/play/${script.id}`} className="block group">
             <div className="bg-[var(--bg-soft)] rounded-lg overflow-hidden border border-[var(--sea-ink-light)] hover:border-[var(--sea-ink)] transition-colors">
               {/* 封面图 */}
               <div className="aspect-video bg-gradient-to-br from-[var(--sea-ink-light)] to-[var(--sea-ink)] flex items-center justify-center">
@@ -55,9 +49,7 @@ function ScriptsPage() {
                   <span className="text-xs px-2 py-1 bg-[var(--sea-ink)] text-white rounded">
                     {genreLabels[script.genre] || script.genre}
                   </span>
-                  <span className="text-xs text-[var(--sea-ink-soft)]">
-                    {script.duration} 分钟
-                  </span>
+                  <span className="text-xs text-[var(--sea-ink-soft)]">{script.duration} 分钟</span>
                 </div>
 
                 <h3 className="font-bold text-lg text-[var(--sea-ink)] group-hover:text-[var(--sea-ink-soft)] transition-colors">

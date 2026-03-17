@@ -98,7 +98,7 @@ export class SaveManager {
         .from(saves)
         .where(and(eq(saves.userId, this.userId), eq(saves.scriptId, scriptId)))
         .orderBy(desc(saves.updatedAt))
-      return results.map(r => ({
+      return results.map((r) => ({
         id: r.id,
         userId: r.userId || undefined,
         scriptId: r.scriptId || '',
@@ -110,7 +110,7 @@ export class SaveManager {
     }
 
     const results = await query.orderBy(desc(saves.updatedAt))
-    return results.map(r => ({
+    return results.map((r) => ({
       id: r.id,
       userId: r.userId || undefined,
       scriptId: r.scriptId || '',
@@ -134,11 +134,7 @@ export class SaveManager {
   }
 
   // 记录游戏完成
-  async recordCompletion(
-    scriptId: string,
-    endingId: string,
-    duration: number
-  ): Promise<void> {
+  async recordCompletion(scriptId: string, endingId: string, duration: number): Promise<void> {
     if (!this.userId) return
 
     await db.insert(gameRecords).values({

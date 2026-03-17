@@ -33,9 +33,7 @@ export function StatusBar({ attributes, relationships, characterNames }: StatusB
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(attributes).map(([key, value]) => (
               <div key={key} className="flex items-center gap-2">
-                <span className="text-sm text-gray-300 w-12">
-                  {attributeLabels[key] || key}
-                </span>
+                <span className="text-sm text-gray-300 w-12">{attributeLabels[key] || key}</span>
                 <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full ${getAttributeColor(value)} transition-all duration-300`}
@@ -58,9 +56,7 @@ export function StatusBar({ attributes, relationships, characterNames }: StatusB
                   key={charId}
                   className="flex items-center gap-1 bg-gray-800 px-2 py-1 rounded text-sm"
                 >
-                  <span className="text-gray-300">
-                    {characterNames?.[charId] || charId}
-                  </span>
+                  <span className="text-gray-300">{characterNames?.[charId] || charId}</span>
                   <span
                     className={`font-mono ${
                       value >= 50

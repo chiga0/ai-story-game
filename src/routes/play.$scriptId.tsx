@@ -3,7 +3,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { DialogueBox } from '#/components/game/DialogueBox'
 import { ChoicePanel } from '#/components/game/ChoicePanel'
 import { StatusBar } from '#/components/game/StatusBar'
-import { createGameEngine, type GameEngine, type GameState, type Scene, type Choice } from '#/lib/game/engine'
+import {
+  createGameEngine,
+  type GameEngine,
+  type GameState,
+  type Scene,
+  type Choice,
+} from '#/lib/game/engine'
 import { sampleScripts } from '#/data/scripts'
 
 export const Route = createFileRoute('/play/$scriptId')({
@@ -28,7 +34,7 @@ function PlayPage() {
         setError(null)
 
         // 查找剧本
-        const script = sampleScripts.find(s => s.id === scriptId)
+        const script = sampleScripts.find((s) => s.id === scriptId)
         if (!script) {
           setError('剧本不存在')
           setLoading(false)
@@ -60,34 +66,37 @@ function PlayPage() {
   }, [scriptId])
 
   // 处理选择
-  const handleChoice = useCallback(async (choiceId: string) => {
-    if (!engine || !gameState) return
+  const handleChoice = useCallback(
+    async (choiceId: string) => {
+      if (!engine || !gameState) return
 
-    setIsTyping(true)
+      setIsTyping(true)
 
-    const result = await engine.processChoice(choiceId)
-    if (!result) return
+      const result = await engine.processChoice(choiceId)
+      if (!result) return
 
-    if (result.type === 'ending') {
-      // 游戏结束
-      setCurrentScene({
-        id: 'ending',
-        text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
-      })
-      setChoices([])
-    } else {
-      // 继续游戏
-      setCurrentScene(result.scene || null)
-      setChoices(engine.getChoices())
-    }
+      if (result.type === 'ending') {
+        // 游戏结束
+        setCurrentScene({
+          id: 'ending',
+          text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
+        })
+        setChoices([])
+      } else {
+        // 继续游戏
+        setCurrentScene(result.scene || null)
+        setChoices(engine.getChoices())
+      }
 
-    setGameState(engine.getState())
-  }, [engine, gameState])
+      setGameState(engine.getState())
+    },
+    [engine, gameState]
+  )
 
   // 获取角色头像
   const getAvatar = (speakerId?: string): string | undefined => {
     if (!speakerId) return undefined
-    const script = sampleScripts.find(s => s.id === scriptId)
+    const script = sampleScripts.find((s) => s.id === scriptId)
     if (!script?.characters) return undefined
     const characters = script.characters as Record<string, { avatar?: string }>
     return characters[speakerId]?.avatar
@@ -96,7 +105,7 @@ function PlayPage() {
   // 获取角色名称
   const getSpeakerName = (speakerId?: string): string | undefined => {
     if (!speakerId) return undefined
-    const script = sampleScripts.find(s => s.id === scriptId)
+    const script = sampleScripts.find((s) => s.id === scriptId)
     if (!script?.characters) return undefined
     const characters = script.characters as Record<string, { name?: string }>
     return characters[speakerId]?.name
@@ -118,7 +127,9 @@ function PlayPage() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)]">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
-          <a href="/scripts" className="text-[var(--sea-ink)] hover:underline">返回剧本列表</a>
+          <a href="/scripts" className="text-[var(--sea-ink)] hover:underline">
+            返回剧本列表
+          </a>
         </div>
       </div>
     )
@@ -128,10 +139,7 @@ function PlayPage() {
     <div className="min-h-screen flex flex-col bg-[var(--bg-base)]">
       {/* 状态栏 */}
       {gameState && (
-        <StatusBar
-          attributes={gameState.attributes}
-          relationships={gameState.relationships}
-        />
+        <StatusBar attributes={gameState.attributes} relationships={gameState.relationships} />
       )}
 
       {/* 游戏主区域 */}
@@ -159,7 +167,7 @@ function PlayPage() {
         {choices.length > 0 && (
           <div className="mt-4">
             <ChoicePanel
-              choices={choices.map(c => ({ id: c.id, text: c.text }))}
+              choices={choices.map((c) => ({ id: c.id, text: c.text }))}
               onChoose={handleChoice}
               disabled={isTyping}
             />

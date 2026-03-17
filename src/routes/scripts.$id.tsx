@@ -35,10 +35,7 @@ function ScriptDetailPage() {
 
   return (
     <div className="page-wrap py-8">
-      <Link
-        to="/scripts"
-        className="nav-link inline-flex items-center gap-1 mb-6"
-      >
+      <Link to="/scripts" className="nav-link inline-flex items-center gap-1 mb-6">
         ← 返回剧本列表
       </Link>
 
@@ -71,9 +68,7 @@ function ScriptDetailPage() {
           </p>
 
           <div className="mb-6">
-            <h2 className="font-semibold text-lg text-[var(--sea-ink)] mb-4">
-              可选角色
-            </h2>
+            <h2 className="font-semibold text-lg text-[var(--sea-ink)] mb-4">可选角色</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {scriptData.characters.map((char) => (
                 <div
@@ -82,9 +77,7 @@ function ScriptDetailPage() {
                 >
                   <div className="font-medium text-[var(--sea-ink)]">{char.name}</div>
                   <div className="text-sm text-[var(--lagoon-deep)]">{char.role}</div>
-                  <div className="text-sm text-[var(--sea-ink-soft)] mt-1">
-                    {char.description}
-                  </div>
+                  <div className="text-sm text-[var(--sea-ink-soft)] mt-1">{char.description}</div>
                 </div>
               ))}
             </div>

@@ -94,11 +94,7 @@ export class GameEngine {
     const attributes = initialState.attributes || {}
     const relationships = initialState.relationships || {}
 
-    this.state = createInitialState(
-      script.id,
-      attributes,
-      relationships
-    )
+    this.state = createInitialState(script.id, attributes, relationships)
     this.state.currentScene = initialScene
 
     return cloneState(this.state)
@@ -179,7 +175,7 @@ export class GameEngine {
     // 检查结局
     const endings = this.script.endings as Ending[]
     const ending = checkEndingState(this.state, endings)
-    
+
     if (ending) {
       return {
         type: 'ending',

@@ -48,9 +48,7 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
 
           <div className="flex-1 min-w-0">
             {/* 说话者名称 */}
-            {speaker && (
-              <div className="text-sm text-amber-400 font-medium mb-1">{speaker}</div>
-            )}
+            {speaker && <div className="text-sm text-amber-400 font-medium mb-1">{speaker}</div>}
 
             {/* 对话内容 */}
             <div className="text-white leading-relaxed">

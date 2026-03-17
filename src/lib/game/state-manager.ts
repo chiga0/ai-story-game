@@ -27,18 +27,18 @@ export interface Condition {
  */
 export function applyEffects(state: GameState, effects: Effect[]): GameState {
   const newState = { ...state }
-  
+
   // 深拷贝属性和关系
   newState.attributes = { ...state.attributes }
   newState.relationships = { ...state.relationships }
-  
+
   for (const effect of effects) {
     // 属性效果
     if (effect.attribute !== undefined && effect.change !== undefined) {
       const currentValue = newState.attributes[effect.attribute] || 0
       newState.attributes[effect.attribute] = currentValue + effect.change
     }
-    
+
     // 关系效果
     if (effect.relationship) {
       const { charId, change } = effect.relationship
@@ -47,7 +47,7 @@ export function applyEffects(state: GameState, effects: Effect[]): GameState {
       newState.relationships[charId] = Math.max(-100, Math.min(100, currentValue + change))
     }
   }
-  
+
   return newState
 }
 
@@ -59,17 +59,17 @@ export function applyEffects(state: GameState, effects: Effect[]): GameState {
  */
 export function evaluateCondition(state: GameState, condition: Condition): boolean {
   if (!condition.attribute) return true
-  
+
   const value = state.attributes[condition.attribute] || 0
-  
+
   if (condition.min !== undefined && value < condition.min) {
     return false
   }
-  
+
   if (condition.max !== undefined && value > condition.max) {
     return false
   }
-  
+
   return true
 }
 
@@ -94,29 +94,29 @@ export function filterAvailableChoices(state: GameState, choices: Choice[]): Cho
  */
 export function checkEnding(state: GameState, endings: Ending[]): Ending | null {
   const matchedEndings: Ending[] = []
-  
+
   for (const ending of endings) {
     let matched = true
-    
+
     for (const [attr, condition] of Object.entries(ending.condition)) {
       const value = state.attributes[attr] || 0
-      
+
       if (condition.min !== undefined && value < condition.min) {
         matched = false
         break
       }
-      
+
       if (condition.max !== undefined && value > condition.max) {
         matched = false
         break
       }
     }
-    
+
     if (matched) {
       matchedEndings.push(ending)
     }
   }
-  
+
   // 如果有多个结局匹配，返回第一个（按照定义顺序）
   return matchedEndings.length > 0 ? matchedEndings[0] : null
 }
@@ -168,7 +168,7 @@ export function setAttribute(state: GameState, attributeName: string, value: num
 export function setRelationship(state: GameState, characterId: string, value: number): GameState {
   // 关系值限制在 -100 到 100 之间
   const clampedValue = Math.max(-100, Math.min(100, value))
-  
+
   return {
     ...state,
     relationships: {
