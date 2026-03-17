@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ScriptCard } from '#/components/script/ScriptCard'
 import { sampleScripts } from '#/data/scripts'
 
 export const Route = createFileRoute('/scripts/')({

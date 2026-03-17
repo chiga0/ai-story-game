@@ -3,7 +3,7 @@
  * 负责管理游戏状态、应用效果、评估条件
  */
 
-import type { GameState, Choice, Scene, Ending } from './engine'
+import type { GameState, Choice, Ending } from './engine'
 
 // 效果类型定义
 export interface Effect {

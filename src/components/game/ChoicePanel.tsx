@@ -1,8 +1,12 @@
 import { Button } from '@/components/ui/button'
-import type { Choice } from '@/lib/game/engine'
+
+export interface ChoiceItem {
+  id: string
+  text: string
+}
 
 interface ChoicePanelProps {
-  choices: Choice[]
+  choices: ChoiceItem[]
   onChoose: (choiceId: string) => void
   disabled?: boolean
 }

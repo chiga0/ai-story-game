@@ -3,7 +3,7 @@
  * 负责解析、验证和管理游戏剧本数据
  */
 
-import type { Scene, Choice, Ending } from './engine'
+import type { Scene, Ending } from './engine'
 
 // 角色定义
 export interface Character {

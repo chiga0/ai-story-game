@@ -85,19 +85,21 @@ function PlayPage() {
   }, [engine, gameState])
 
   // 获取角色头像
-  const getAvatar = (speakerId?: string) => {
+  const getAvatar = (speakerId?: string): string | undefined => {
     if (!speakerId) return undefined
     const script = sampleScripts.find(s => s.id === scriptId)
-    const character = script?.characters?.[speakerId as keyof typeof script.characters]
-    return character?.avatar
+    if (!script?.characters) return undefined
+    const characters = script.characters as Record<string, { avatar?: string }>
+    return characters[speakerId]?.avatar
   }
 
   // 获取角色名称
-  const getSpeakerName = (speakerId?: string) => {
+  const getSpeakerName = (speakerId?: string): string | undefined => {
     if (!speakerId) return undefined
     const script = sampleScripts.find(s => s.id === scriptId)
-    const character = script?.characters?.[speakerId as keyof typeof script.characters]
-    return character?.name
+    if (!script?.characters) return undefined
+    const characters = script.characters as Record<string, { name?: string }>
+    return characters[speakerId]?.name
   }
 
   if (loading) {
@@ -147,7 +149,7 @@ function PlayPage() {
         {currentScene && (
           <DialogueBox
             speaker={getSpeakerName(currentScene.speaker)}
-            content={currentScene.text}
+            text={currentScene.text}
             avatar={getAvatar(currentScene.speaker)}
             onTypingComplete={() => setIsTyping(false)}
           />

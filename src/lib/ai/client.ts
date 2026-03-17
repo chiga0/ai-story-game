@@ -54,8 +54,8 @@ ${context.speaker ? `说话角色：${context.speaker}` : ''}
 }
 
 // NPC 个性化
-export function personalizeNPC(npc: NPC, playerChoices: string[]): NPC {
-  // 根据 playerChoices 调整 NPC 行为
+export function personalizeNPC(npc: NPC, _playerChoices: string[]): NPC {
+  // TODO: 根据 playerChoices 调整 NPC 行为
   return {
     ...npc,
     personality: `${npc.personality}（根据玩家选择已调整）`,

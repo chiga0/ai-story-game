@@ -60,7 +60,7 @@ function HomePage() {
             title: '关系追踪',
             desc: '与 NPC 的关系将影响他们的态度和可选行动。',
           },
-        ].map(([title, desc], index) => (
+        ].map(({ title, desc }, index) => (
           <article
             key={title}
             className="island-shell feature-card rise-in rounded-2xl p-5"

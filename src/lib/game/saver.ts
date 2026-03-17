@@ -5,6 +5,7 @@ import { eq, and, desc } from 'drizzle-orm'
 
 export interface SaveData {
   id: string
+  userId?: string
   scriptId: string
   scriptTitle?: string
   currentScene: string
@@ -97,11 +98,27 @@ export class SaveManager {
         .from(saves)
         .where(and(eq(saves.userId, this.userId), eq(saves.scriptId, scriptId)))
         .orderBy(desc(saves.updatedAt))
-      return results as SaveData[]
+      return results.map(r => ({
+        id: r.id,
+        userId: r.userId || undefined,
+        scriptId: r.scriptId || '',
+        currentScene: r.currentScene || '',
+        state: r.state as GameState,
+        createdAt: r.createdAt || new Date(),
+        updatedAt: r.updatedAt || new Date(),
+      })) as SaveData[]
     }
 
     const results = await query.orderBy(desc(saves.updatedAt))
-    return results as SaveData[]
+    return results.map(r => ({
+      id: r.id,
+      userId: r.userId || undefined,
+      scriptId: r.scriptId || '',
+      currentScene: r.currentScene || '',
+      state: r.state as GameState,
+      createdAt: r.createdAt || new Date(),
+      updatedAt: r.updatedAt || new Date(),
+    })) as SaveData[]
   }
 
   // 删除存档
