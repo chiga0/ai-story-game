@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScriptsIndexRouteImport } from './routes/scripts.index'
+import { Route as SavesIndexRouteImport } from './routes/saves.index'
 import { Route as ScriptsIdRouteImport } from './routes/scripts.$id'
 import { Route as PlayScriptIdRouteImport } from './routes/play.$scriptId'
 
@@ -30,6 +31,11 @@ const ScriptsIndexRoute = ScriptsIndexRouteImport.update({
   path: '/scripts/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SavesIndexRoute = SavesIndexRouteImport.update({
+  id: '/saves/',
+  path: '/saves/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScriptsIdRoute = ScriptsIdRouteImport.update({
   id: '/scripts/$id',
   path: '/scripts/$id',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/saves/': typeof SavesIndexRoute
   '/scripts/': typeof ScriptsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/saves': typeof SavesIndexRoute
   '/scripts': typeof ScriptsIndexRoute
 }
 export interface FileRoutesById {
@@ -61,19 +69,33 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/saves/': typeof SavesIndexRoute
   '/scripts/': typeof ScriptsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/play/$scriptId' | '/scripts/$id' | '/scripts/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/play/$scriptId'
+    | '/scripts/$id'
+    | '/saves/'
+    | '/scripts/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/play/$scriptId' | '/scripts/$id' | '/scripts'
+  to:
+    | '/'
+    | '/about'
+    | '/play/$scriptId'
+    | '/scripts/$id'
+    | '/saves'
+    | '/scripts'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/play/$scriptId'
     | '/scripts/$id'
+    | '/saves/'
     | '/scripts/'
   fileRoutesById: FileRoutesById
 }
@@ -82,6 +104,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   PlayScriptIdRoute: typeof PlayScriptIdRoute
   ScriptsIdRoute: typeof ScriptsIdRoute
+  SavesIndexRoute: typeof SavesIndexRoute
   ScriptsIndexRoute: typeof ScriptsIndexRoute
 }
 
@@ -108,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScriptsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saves/': {
+      id: '/saves/'
+      path: '/saves'
+      fullPath: '/saves/'
+      preLoaderRoute: typeof SavesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/scripts/$id': {
       id: '/scripts/$id'
       path: '/scripts/$id'
@@ -130,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   PlayScriptIdRoute: PlayScriptIdRoute,
   ScriptsIdRoute: ScriptsIdRoute,
+  SavesIndexRoute: SavesIndexRoute,
   ScriptsIndexRoute: ScriptsIndexRoute,
 }
 export const routeTree = rootRouteImport

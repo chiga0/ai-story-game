@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { DialogueBox } from '#/components/game/DialogueBox'
 import { ChoicePanel } from '#/components/game/ChoicePanel'
 import { StatusBar } from '#/components/game/StatusBar'
+import { SaveButton } from '#/components/game/SaveButton'
 import {
   createGameEngine,
   type GameEngine,
@@ -10,6 +11,7 @@ import {
   type Scene,
   type Choice,
 } from '#/lib/game/engine'
+import { getSave } from '#/lib/game/save-manager'
 import { sampleScripts } from '#/data/scripts'
 
 export const Route = createFileRoute('/play/$scriptId')({
@@ -25,6 +27,7 @@ function PlayPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isTyping, setIsTyping] = useState(true)
+  const [scriptTitle, setScriptTitle] = useState('')
 
   // 初始化游戏
   useEffect(() => {
@@ -41,14 +44,44 @@ function PlayPage() {
           return
         }
 
+        setScriptTitle(script.title)
+
         // 创建游戏引擎
         const gameEngine = createGameEngine()
-        const state = await gameEngine.init({
-          id: script.id,
-          title: script.title,
-          scenes: script.scenes,
-          endings: script.endings,
-        } as any)
+        
+        // 检查是否有存档要加载
+        const params = new URLSearchParams(window.location.search)
+        const saveId = params.get('saveId')
+        
+        let state: GameState
+        
+        if (saveId) {
+          // 加载存档
+          const save = getSave(saveId)
+          if (save) {
+            await gameEngine.restore(save.state, {
+              id: script.id,
+              title: script.title,
+              scenes: script.scenes,
+              endings: script.endings,
+            } as any)
+            state = save.state
+          } else {
+            state = await gameEngine.init({
+              id: script.id,
+              title: script.title,
+              scenes: script.scenes,
+              endings: script.endings,
+            } as any)
+          }
+        } else {
+          state = await gameEngine.init({
+            id: script.id,
+            title: script.title,
+            scenes: script.scenes,
+            endings: script.endings,
+          } as any)
+        }
 
         setEngine(gameEngine)
         setGameState(state)
@@ -66,32 +99,27 @@ function PlayPage() {
   }, [scriptId])
 
   // 处理选择
-  const handleChoice = useCallback(
-    async (choiceId: string) => {
-      if (!engine || !gameState) return
+  const handleChoice = useCallback(async (choiceId: string) => {
+    if (!engine || !gameState) return
 
-      setIsTyping(true)
+    setIsTyping(true)
 
-      const result = await engine.processChoice(choiceId)
-      if (!result) return
+    const result = await engine.processChoice(choiceId)
+    if (!result) return
 
-      if (result.type === 'ending') {
-        // 游戏结束
-        setCurrentScene({
-          id: 'ending',
-          text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
-        })
-        setChoices([])
-      } else {
-        // 继续游戏
-        setCurrentScene(result.scene || null)
-        setChoices(engine.getChoices())
-      }
+    if (result.type === 'ending') {
+      setCurrentScene({
+        id: 'ending',
+        text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
+      })
+      setChoices([])
+    } else {
+      setCurrentScene(result.scene || null)
+      setChoices(engine.getChoices())
+    }
 
-      setGameState(engine.getState())
-    },
-    [engine, gameState]
-  )
+    setGameState(engine.getState())
+  }, [engine, gameState])
 
   // 获取角色头像
   const getAvatar = (speakerId?: string): string | undefined => {
@@ -127,9 +155,7 @@ function PlayPage() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)]">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
-          <a href="/scripts" className="text-[var(--sea-ink)] hover:underline">
-            返回剧本列表
-          </a>
+          <a href="/scripts" className="text-[var(--sea-ink)] hover:underline">返回剧本列表</a>
         </div>
       </div>
     )
@@ -137,19 +163,39 @@ function PlayPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-base)]">
+      {/* 顶部工具栏 */}
+      <div className="p-4 border-b border-[var(--sea-ink-light)] flex justify-between items-center">
+        <a href="/scripts" className="text-[var(--sea-ink)] hover:underline">
+          ← 返回
+        </a>
+        <a href="/saves" className="text-[var(--sea-ink)] hover:underline">
+          存档管理
+        </a>
+      </div>
+
       {/* 状态栏 */}
       {gameState && (
-        <StatusBar attributes={gameState.attributes} relationships={gameState.relationships} />
+        <StatusBar
+          attributes={gameState.attributes}
+          relationships={gameState.relationships}
+        />
       )}
 
       {/* 游戏主区域 */}
       <div className="flex-1 flex flex-col justify-end p-4 max-w-4xl mx-auto w-full">
         {/* 当前场景提示 */}
         {gameState && (
-          <div className="mb-4">
+          <div className="mb-4 flex justify-between items-center">
             <span className="text-sm text-[var(--sea-ink-soft)]">
               游玩时长: {Math.floor((Date.now() - gameState.startTime) / 60000)} 分钟
             </span>
+            {scriptTitle && gameState && (
+              <SaveButton
+                scriptId={scriptId}
+                scriptTitle={scriptTitle}
+                state={gameState}
+              />
+            )}
           </div>
         )}
 
@@ -176,7 +222,7 @@ function PlayPage() {
 
         {/* 游戏结束 */}
         {choices.length === 0 && currentScene?.id === 'ending' && (
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-4">
             <a
               href="/scripts"
               className="inline-block px-6 py-3 bg-[var(--sea-ink)] text-white rounded-lg hover:opacity-90 transition-opacity"
