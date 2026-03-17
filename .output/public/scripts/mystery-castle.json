@@ -1,0 +1,423 @@
+{
+  "id": "mystery-castle",
+  "title": "神秘古堡",
+  "description": "一个风雨交加的夜晚，你来到一座古老的城堡。传说这里隐藏着不为人知的秘密，而今晚，你将揭开它的神秘面纱...",
+  "genre": "mystery",
+  "tags": ["悬疑", "解谜", "推理"],
+  "estimatedDuration": 45,
+  "difficulty": "normal",
+  "characters": [
+    {
+      "id": "butler",
+      "name": "老管家",
+      "avatar": "/images/characters/butler.png",
+      "description": "一位年迈的管家，在这座古堡工作了四十年。他的眼神深邃，似乎知道许多秘密。",
+      "personality": "沉稳、谨慎、忠诚",
+      "speakingStyle": "礼貌而疏离，说话总是模棱两可"
+    },
+    {
+      "id": "daughter",
+      "name": "艾莉丝",
+      "avatar": "/images/characters/daughter.png",
+      "description": "城堡主人的女儿，一位神秘的年轻女子。她的举止优雅，但眼中总带着一丝忧伤。",
+      "personality": "聪慧、敏感、隐藏着什么",
+      "speakingStyle": "说话轻柔，喜欢用隐喻"
+    },
+    {
+      "id": "doctor",
+      "name": "陈医生",
+      "avatar": "/images/characters/doctor.png",
+      "description": "城堡主人的私人医生，一位中年男子。他对城堡里发生的一切似乎了如指掌。",
+      "personality": "理性、冷静、有些阴沉",
+      "speakingStyle": "言简意赅，喜欢引用医学知识"
+    }
+  ],
+  "scenes": {
+    "start": {
+      "id": "start",
+      "text": "雨夜，闪电划破天际。\n\n你站在古堡的铁门前，雨水打湿了你的衣衫。这座城堡传闻中已有百年历史，是当地最神秘的建筑。\n\n门上挂着一块锈迹斑斑的牌子：「来访请按铃」。",
+      "background": "/images/backgrounds/castle-gate.png",
+      "choices": [
+        {
+          "id": "ring",
+          "text": "按响门铃",
+          "nextSceneId": "enter",
+          "effects": [{ "attribute": "courage", "change": 5 }]
+        },
+        {
+          "id": "wait",
+          "text": "在门口等待",
+          "nextSceneId": "wait_outside",
+          "effects": [{ "attribute": "patience", "change": 5 }]
+        },
+        {
+          "id": "investigate",
+          "text": "观察四周",
+          "nextSceneId": "investigate_gate",
+          "effects": [{ "attribute": "observation", "change": 5 }]
+        }
+      ]
+    },
+    "initialState": {
+      "attributes": {
+        "courage": 50,
+        "patience": 50,
+        "observation": 50,
+        "clue": 0,
+        "trust": 0
+      },
+      "relationships": {
+        "butler": 0,
+        "daughter": 0,
+        "doctor": 0
+      }
+    },
+    "wait_outside": {
+      "id": "wait_outside",
+      "text": "你决定耐心等待。\n\n十分钟后，大门缓缓打开。一位身着黑色燕尾服的老者站在门口，雨水在他身后形成一道模糊的剪影。\n\n「这么晚了，是有什么急事吗？」他的声音低沉而有礼。",
+      "background": "/images/backgrounds/castle-door.png",
+      "choices": [
+        {
+          "id": "explain_visit",
+          "text": "解释你的来意",
+          "nextSceneId": "enter"
+        },
+        {
+          "id": "ask_about_owner",
+          "text": "询问城堡主人的情况",
+          "nextSceneId": "ask_owner"
+        }
+      ]
+    },
+    "investigate_gate": {
+      "id": "investigate_gate",
+      "text": "你仔细观察四周。\n\n门边的石墙上刻着一个奇怪的徽章——一只展翅的乌鸦。徽章下方有一个小凹槽，似乎是可以嵌入什么东西的地方。\n\n突然，你听到门内传来脚步声。",
+      "background": "/images/backgrounds/castle-gate-detail.png",
+      "choices": [
+        {
+          "id": "note_investigation",
+          "text": "记下这个发现",
+          "nextSceneId": "enter",
+          "effects": [{ "attribute": "clue", "change": 1 }]
+        },
+        {
+          "id": "ignore_findings",
+          "text": "不予理会",
+          "nextSceneId": "enter"
+        }
+      ]
+    },
+    "enter": {
+      "id": "enter",
+      "text": "老管家侧身让你进入。\n\n城堡大厅比想象中更加宏伟。高耸的天花板上悬挂着水晶吊灯，墙壁上挂满了历代主人的画像。\n\n「主人身体欠佳，不宜见客。」管家说道，「但我可以为您安排一个房间休息。」",
+      "speaker": "butler",
+      "background": "/images/backgrounds/castle-hall.png",
+      "choices": [
+        {
+          "id": "accept_room",
+          "text": "接受安排",
+          "nextSceneId": "guest_room",
+          "effects": [
+            { "relationship": { "charId": "butler", "change": 10 } }
+          ]
+        },
+        {
+          "id": "insist_seeing_owner",
+          "text": "坚持要见主人",
+          "nextSceneId": "insist_owner",
+          "effects": [
+            { "relationship": { "charId": "butler", "change": -5 } },
+            { "attribute": "courage", "change": 5 }
+          ]
+        },
+        {
+          "id": "ask_about_family",
+          "text": "询问城堡里还有谁",
+          "nextSceneId": "family_info"
+        }
+      ]
+    },
+    "ask_owner": {
+      "id": "ask_owner",
+      "text": "「城堡主人？」管家的眼中闪过一丝难以察觉的波动。\n\n「主人身体抱恙已久，不便见客。但我可以为您安排住宿。」\n\n他的回答滴水不漏，但你敏锐地感觉到他在回避什么。",
+      "speaker": "butler",
+      "background": "/images/backgrounds/castle-door.png",
+      "choices": [
+        {
+          "id": "accept_info",
+          "text": "接受他的安排",
+          "nextSceneId": "enter",
+          "effects": [{ "attribute": "trust", "change": 5 }]
+        },
+        {
+          "id": "press_further",
+          "text": "追问更多细节",
+          "nextSceneId": "press_butler",
+          "effects": [
+            { "attribute": "clue", "change": 1 },
+            { "relationship": { "charId": "butler", "change": -10 } }
+          ]
+        }
+      ]
+    },
+    "family_info": {
+      "id": "family_info",
+      "text": "「城堡里还有谁？」你问道。\n\n管家沉默了片刻：「除了我，还有小姐和医生。他们......住在这栋房子里。」\n\n他说「住」这个字时，语气有些异样。",
+      "speaker": "butler",
+      "background": "/images/backgrounds/castle-hall.png",
+      "choices": [
+        {
+          "id": "note_unusual",
+          "text": "留意这个细节",
+          "nextSceneId": "guest_room",
+          "effects": [{ "attribute": "clue", "change": 1 }]
+        },
+        {
+          "id": "ask_more",
+          "text": "继续追问",
+          "nextSceneId": "family_detail"
+        }
+      ]
+    },
+    "guest_room": {
+      "id": "guest_room",
+      "text": "管家带你来到二楼的客房。\n\n「这是您的房间。如果需要什么，请摇这个铃。」他指了指床边的一个银色铃铛。\n\n房间布置得十分考究，墙上挂着一幅风景画。窗外，雨依然下着。",
+      "background": "/images/backgrounds/guest-room.png",
+      "choices": [
+        {
+          "id": "rest",
+          "text": "休息一会",
+          "nextSceneId": "rest_scene"
+        },
+        {
+          "id": "explore_room",
+          "text": "仔细检查房间",
+          "nextSceneId": "explore_guest_room",
+          "effects": [{ "attribute": "observation", "change": 5 }]
+        },
+        {
+          "id": "go_downstairs",
+          "text": "悄悄下楼看看",
+          "nextSceneId": "sneak_downstairs",
+          "condition": { "attribute": "courage", "min": 55 }
+        }
+      ]
+    },
+    "insist_owner": {
+      "id": "insist_owner",
+      "text": "「我必须见您的主人。」你坚定地说。\n\n管家的表情变得严肃：「先生，我必须提醒您，主人确实不便见客。这并非推辞。」\n\n他的语气中带着一丝警告。",
+      "speaker": "butler",
+      "background": "/images/backgrounds/castle-hall.png",
+      "choices": [
+        {
+          "id": "back_down",
+          "text": "退一步",
+          "nextSceneId": "guest_room"
+        },
+        {
+          "id": "continue_insist",
+          "text": "继续坚持",
+          "nextSceneId": "butler_refuse",
+          "condition": { "attribute": "courage", "min": 60 }
+        }
+      ]
+    },
+    "rest_scene": {
+      "id": "rest_scene",
+      "text": "你决定先休息一下。\n\n躺在床上，你回想今天的经历。这座城堡、神秘的管家、据说生病的城堡主人......一切都透着一股诡异的气息。\n\n不知过了多久，你被一阵奇怪的声音惊醒。",
+      "background": "/images/backgrounds/guest-room-night.png",
+      "choices": [
+        {
+          "id": "check_sound",
+          "text": "去看看是什么声音",
+          "nextSceneId": "investigate_sound",
+          "effects": [{ "attribute": "courage", "change": 5 }]
+        },
+        {
+          "id": "stay_in_room",
+          "text": "留在房间里",
+          "nextSceneId": "stay_put"
+        }
+      ]
+    },
+    "explore_guest_room": {
+      "id": "explore_guest_room",
+      "text": "你仔细检查房间。\n\n床底有一个落满灰尘的盒子，里面装着一些旧照片。照片上是一对年轻夫妇和一个婴儿。\n\n墙壁上的风景画后面，你发现了一个小凹槽——和门外看到的那个徽章凹槽很像。",
+      "background": "/images/backgrounds/guest-room.png",
+      "choices": [
+        {
+          "id": "take_photos",
+          "text": "拿走照片",
+          "nextSceneId": "rest_scene",
+          "effects": [{ "attribute": "clue", "change": 2 }]
+        },
+        {
+          "id": "note_slot",
+          "text": "记下凹槽的位置",
+          "nextSceneId": "rest_scene",
+          "effects": [{ "attribute": "clue", "change": 1 }]
+        }
+      ]
+    },
+    "investigate_sound": {
+      "id": "investigate_sound",
+      "text": "你悄悄打开房门。\n\n走廊尽头，一个人影正站在一扇门前，似乎在倾听里面的动静。那是......艾莉丝小姐？\n\n她发现了你，眼中闪过惊讶。",
+      "speaker": "daughter",
+      "background": "/images/backgrounds/castle-corridor.png",
+      "choices": [
+        {
+          "id": "approach_alice",
+          "text": "走过去和她交谈",
+          "nextSceneId": "meet_alice",
+          "effects": [
+            { "relationship": { "charId": "daughter", "change": 10 } }
+          ]
+        },
+        {
+          "id": "pretend_not_see",
+          "text": "假装没看见",
+          "nextSceneId": "pretend_ignorance"
+        }
+      ]
+    },
+    "meet_alice": {
+      "id": "meet_alice",
+      "text": "「你......你是新来的客人？」艾莉丝的声音很轻柔。\n\n「这座城堡里有很多秘密。」她突然说道，「如果你想知道真相，明晚到花园来。」\n\n说完，她便消失在走廊的阴影中。",
+      "speaker": "daughter",
+      "background": "/images/backgrounds/castle-corridor.png",
+      "choices": [
+        {
+          "id": "return_room",
+          "text": "回到房间",
+          "nextSceneId": "next_day"
+        },
+        {
+          "id": "follow_alice",
+          "text": "悄悄跟上去",
+          "nextSceneId": "follow_alice_scene",
+          "condition": { "attribute": "observation", "min": 55 }
+        }
+      ]
+    },
+    "next_day": {
+      "id": "next_day",
+      "text": "第二天清晨，阳光透过窗户洒入房间。\n\n昨夜的遭遇让你难以入眠。艾莉丝的话在脑海中回响：「这座城堡里有很多秘密。」\n\n管家送来了早餐和一封信。",
+      "background": "/images/backgrounds/guest-room-morning.png",
+      "choices": [
+        {
+          "id": "read_letter",
+          "text": "阅读信件",
+          "nextSceneId": "read_letter_scene",
+          "effects": [{ "attribute": "clue", "change": 1 }]
+        },
+        {
+          "id": "explore_garden",
+          "text": "先去花园看看",
+          "nextSceneId": "garden_day"
+        },
+        {
+          "id": "find_doctor",
+          "text": "寻找那位医生",
+          "nextSceneId": "meet_doctor"
+        }
+      ]
+    },
+    "read_letter_scene": {
+      "id": "read_letter_scene",
+      "text": "信很短：\n\n「亲爱的客人，\n\n我有重要的事情要告诉你。今晚十二点，请到城堡的旧图书馆来。\n\n——一个想说出真相的人」\n\n字迹潦草，似乎是在匆忙中写下的。",
+      "background": "/images/backgrounds/letter.png",
+      "choices": [
+        {
+          "id": "go_library",
+          "text": "决定去图书馆",
+          "nextSceneId": "library_night",
+          "effects": [{ "attribute": "courage", "change": 5 }]
+        },
+        {
+          "id": "be_cautious",
+          "text": "这可能是个陷阱",
+          "nextSceneId": "be_cautious_scene"
+        }
+      ]
+    },
+    "library_night": {
+      "id": "library_night",
+      "text": "午夜时分，你来到旧图书馆。\n\n一个人影从书架后走出——是陈医生。\n\n「你来了。」他的声音低沉，「有些事情，我必须告诉你。」",
+      "speaker": "doctor",
+      "background": "/images/backgrounds/library.png",
+      "choices": [
+        {
+          "id": "listen_to_doctor",
+          "text": "倾听他的话",
+          "nextSceneId": "doctor_revelation",
+          "effects": [
+            { "relationship": { "charId": "doctor", "change": 10 } },
+            { "attribute": "clue", "change": 3 }
+          ]
+        },
+        {
+          "id": "question_doctor",
+          "text": "质问他的动机",
+          "nextSceneId": "question_doctor_scene"
+        }
+      ]
+    },
+    "doctor_revelation": {
+      "id": "doctor_revelation",
+      "text": "「城堡主人......其实早在三年前就去世了。」医生缓缓说道。\n\n「老管家、艾莉丝小姐、还有我......我们都在保守这个秘密。因为这座城堡，藏着比死亡更可怕的东西。」\n\n他的眼神变得恐惧：「如果你想知道真相，必须找到乌鸦徽章。」",
+      "speaker": "doctor",
+      "background": "/images/backgrounds/library.png",
+      "choices": [
+        {
+          "id": "final_choice",
+          "text": "这将是关键的决定...",
+          "nextSceneId": "climax"
+        }
+      ]
+    },
+    "climax": {
+      "id": "climax",
+      "text": "所有的线索指向一个终点。\n\n乌鸦徽章、凹槽、旧照片、死亡的秘密......\n\n你站在城堡的最深处，面前是一扇隐藏的门。现在，是时候做出最后的选择了。",
+      "background": "/images/backgrounds/secret-door.png",
+      "choices": [
+        {
+          "id": "open_door",
+          "text": "打开那扇门",
+          "nextSceneId": "ending_truth",
+          "condition": { "attribute": "clue", "min": 5 }
+        },
+        {
+          "id": "leave_castle",
+          "text": "离开这座城堡",
+          "nextSceneId": "ending_escape"
+        }
+      ]
+    },
+    "ending_truth": {
+      "id": "ending_truth",
+      "text": "你打开了那扇门。\n\n门后是一个密室。墙上挂满了照片和文件，记录着一个惊人的真相——这座城堡其实是一个古老秘密组织的据点，而所谓的「城堡主人」从未存在过。\n\n管家、艾莉丝、医生......他们都是组织安排的角色，目的是守护一个被封印的秘密。\n\n而你，意外地揭开了这一切。\n\n【真相结局】",
+      "background": "/images/backgrounds/secret-room.png"
+    },
+    "ending_escape": {
+      "id": "ending_escape",
+      "text": "你决定离开。\n\n也许有些秘密注定不应该被揭开。古堡依然矗立在山丘上，守护着它百年的谜团。\n\n当你离开时，回头看了一眼——老管家站在窗前，似乎在注视着你。\n\n有些故事，到此为止。\n\n【逃离结局】",
+      "background": "/images/backgrounds/castle-outside.png"
+    }
+  },
+  "endings": [
+    {
+      "id": "truth",
+      "title": "真相大白",
+      "description": "你揭开了古堡的秘密，发现了隐藏在表象之下的真相。",
+      "image": "/images/endings/truth-ending.png",
+      "condition": { "clue": { "min": 5 } }
+    },
+    {
+      "id": "escape",
+      "title": "安全离去",
+      "description": "你选择离开，将秘密永远留在古堡之中。",
+      "image": "/images/endings/escape-ending.png",
+      "condition": {}
+    }
+  ]
+}
