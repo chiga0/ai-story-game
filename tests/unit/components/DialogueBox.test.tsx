@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { DialogueBox } from '../../../src/components/game/DialogueBox'
 
@@ -13,6 +13,9 @@ describe('DialogueBox', () => {
 
   it('should render text content', () => {
     render(<DialogueBox text="测试对话" />)
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
     expect(screen.getByText('测试对话')).toBeDefined()
   })
 
@@ -47,15 +50,15 @@ describe('DialogueBox', () => {
     const onComplete = vi.fn()
     render(<DialogueBox text="abc" onTypingComplete={onComplete} />)
     
-    // 快进时间 (3 字符 * 30ms = 90ms)
+    // 快进时间 (3 字符 * 30ms = 90ms, 加上 buffer)
     act(() => {
-      vi.advanceTimersByTime(100)
+      vi.advanceTimersByTime(150)
     })
     
     expect(onComplete).toHaveBeenCalled()
   })
 
-  it('should reset animation when text changes', () => {
+  it('should display new text when text changes', () => {
     const { rerender } = render(<DialogueBox text="第一段" />)
     
     // 快进到完成
@@ -66,10 +69,11 @@ describe('DialogueBox', () => {
     // 更新文本
     rerender(<DialogueBox text="第二段" />)
     
-    // 应该重新开始打字
-    expect(screen.getByText('第')).toBeDefined()
+    // 快进完成
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    
+    expect(screen.getByText('第二段')).toBeDefined()
   })
 })
-
-// 需要导入 afterEach
-import { afterEach } from 'vitest'

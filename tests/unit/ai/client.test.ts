@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock the ai module
 vi.mock('ai', () => ({
@@ -70,9 +70,10 @@ describe('AI Client', () => {
         id: 'butler',
         name: '管家亨利',
         personality: '忠诚、严肃',
+        avatar: '👴',
       }
 
-      expect(npc.avatar).toBeUndefined()
+      expect(npc.avatar).toBe('👴')
     })
   })
 

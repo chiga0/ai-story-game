@@ -41,7 +41,7 @@ describe('StatusBar', () => {
     })
 
     it('should not render relationships section when not provided', () => {
-      const { container } = render(<StatusBar attributes={{}} />)
+      render(<StatusBar attributes={{}} />)
       
       // 不应该有"关系"标签
       expect(screen.queryByText('关系')).toBeNull()

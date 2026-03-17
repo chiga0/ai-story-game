@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 describe('Chat API', () => {
   describe('Request Validation', () => {
@@ -40,7 +40,6 @@ describe('Chat API', () => {
 
     it('should handle error format', () => {
       const errorData = JSON.stringify({ error: 'Stream error' })
-      const sseMessage = `data: ${errorData}\n\n`
       
       const parsed = JSON.parse(errorData)
       expect(parsed).toHaveProperty('error')
