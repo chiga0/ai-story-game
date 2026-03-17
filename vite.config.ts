@@ -13,7 +13,10 @@ import netlify from '@netlify/vite-plugin-tanstack-start'
 const config = defineConfig({
   plugins: [
     devtools(),
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    nitro({ 
+      preset: 'netlify',
+      rollupConfig: { external: [/^@sentry\//] } 
+    }),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
     tanstackStart(),
