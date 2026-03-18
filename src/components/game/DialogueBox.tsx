@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface DialogueBoxProps {
@@ -11,6 +11,7 @@ interface DialogueBoxProps {
 export function DialogueBox({ speaker, text, avatar, onTypingComplete }: DialogueBoxProps) {
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(true)
+  const textContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setDisplayedText('')
@@ -21,6 +22,10 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
       if (index < text.length) {
         setDisplayedText(text.slice(0, index + 1))
         index++
+        // 自动滚动到底部
+        if (textContainerRef.current) {
+          textContainerRef.current.scrollTop = textContainerRef.current.scrollHeight
+        }
       } else {
         setIsTyping(false)
         clearInterval(interval)
@@ -50,8 +55,11 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
             {/* 说话者名称 */}
             {speaker && <div className="text-sm text-amber-400 font-medium mb-1">{speaker}</div>}
 
-            {/* 对话内容 */}
-            <div className="text-white leading-relaxed">
+            {/* 对话内容 - 支持长文本自动换行和滚动 */}
+            <div
+              ref={textContainerRef}
+              className="text-white leading-relaxed whitespace-pre-wrap break-words max-h-60 overflow-y-auto"
+            >
               {displayedText}
               {isTyping && <span className="animate-pulse">▌</span>}
             </div>

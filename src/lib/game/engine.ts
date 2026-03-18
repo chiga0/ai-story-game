@@ -144,18 +144,29 @@ export class GameEngine {
     // 移动到下一个场景
     this.state.currentScene = choice.nextSceneId
 
-    // 检查结局
-    const ending = checkEndingState(this.state, this.script.endings)
+    // 获取下一个场景
+    const nextScene = this.getCurrentScene()
 
-    if (ending) {
-      return {
-        type: 'ending',
-        ending,
-        effects: appliedEffects,
+    // 只在以下情况检查属性结局：
+    // 1. 下一个场景没有选择（即结局场景）
+    // 2. 或者下一个场景 ID 包含 "ending" 或 "confrontation"
+    const isEndingScene = !nextScene?.choices || nextScene.choices.length === 0
+    const isCheckpointScene = choice.nextSceneId?.includes('ending') || 
+                              choice.nextSceneId?.includes('confrontation')
+
+    if (isEndingScene || isCheckpointScene) {
+      // 检查结局
+      const ending = checkEndingState(this.state, this.script.endings)
+
+      if (ending) {
+        return {
+          type: 'ending',
+          ending,
+          effects: appliedEffects,
+        }
       }
     }
 
-    const nextScene = this.getCurrentScene()
     return {
       type: 'continue',
       scene: nextScene || undefined,

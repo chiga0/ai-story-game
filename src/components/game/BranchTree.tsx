@@ -71,17 +71,63 @@ function buildBranchTree(
   const newPath = new Set(visitedInPath)
   newPath.add(startId)
 
-  // 只在当前场景时显示子节点，或者子节点已被访问
-  const shouldShowChildren = startId === currentId || depth === 0
+  // 只在当前场景时显示子节点选项，或者子节点已被访问
+  // 不再提前暴露未探索的路径
+  const isCurrentScene = startId === currentId
 
   // 构建子节点
-  if (shouldShowChildren && scene.choices && scene.choices.length > 0) {
+  if (scene.choices && scene.choices.length > 0) {
     for (const choice of scene.choices) {
-      // 只显示已访问的子节点，或者当前是选择的直接下一层
-      if (visitedIds.has(choice.nextSceneId) || startId === currentId) {
+      // 只显示：
+      // 1. 已访问的子节点（显示探索历史）
+      // 2. 当前场景的直接选择（但不递归显示它们的内容）
+      const isVisited = visitedIds.has(choice.nextSceneId)
+      const isDirectChoice = isCurrentScene
+      
+      if (isVisited || isDirectChoice) {
+        // 对于当前场景的直接选择，只创建一个空节点（不递归展开）
+        if (isDirectChoice && !isVisited) {
+          node.children.push({
+            id: choice.nextSceneId,
+            label: getSceneLabel(scenes[choice.nextSceneId], choice.nextSceneId),
+            children: [],
+            isVisited: false,
+            isCurrent: false,
+          })
+        } else {
+          // 已访问的节点，正常构建
+          const childNode = buildBranchTree(
+            scenes,
+            choice.nextSceneId,
+            visitedIds,
+            currentId,
+            maxDepth - 1,
+            newPath,
+            depth + 1
+          )
+          if (childNode) {
+            node.children.push(childNode)
+          }
+        }
+      }
+    }
+  } else if (scene.nextSceneId) {
+    const isVisited = visitedIds.has(scene.nextSceneId)
+    const isDirectChoice = isCurrentScene
+    
+    if (isVisited || isDirectChoice) {
+      if (isDirectChoice && !isVisited) {
+        node.children.push({
+          id: scene.nextSceneId,
+          label: getSceneLabel(scenes[scene.nextSceneId], scene.nextSceneId),
+          children: [],
+          isVisited: false,
+          isCurrent: false,
+        })
+      } else {
         const childNode = buildBranchTree(
           scenes,
-          choice.nextSceneId,
+          scene.nextSceneId,
           visitedIds,
           currentId,
           maxDepth - 1,
@@ -91,21 +137,6 @@ function buildBranchTree(
         if (childNode) {
           node.children.push(childNode)
         }
-      }
-    }
-  } else if (shouldShowChildren && scene.nextSceneId) {
-    if (visitedIds.has(scene.nextSceneId) || startId === currentId) {
-      const childNode = buildBranchTree(
-        scenes,
-        scene.nextSceneId,
-        visitedIds,
-        currentId,
-        maxDepth - 1,
-        newPath,
-        depth + 1
-      )
-      if (childNode) {
-        node.children.push(childNode)
       }
     }
   }

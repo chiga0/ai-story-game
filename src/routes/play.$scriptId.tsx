@@ -61,11 +61,35 @@ function PlayPage() {
     traits: [],
   })
 
+  // 游玩时长实时更新
+  const [playTimeMinutes, setPlayTimeMinutes] = useState(0)
+
   // 音频控制
   const { playSfx, playMusic, stopMusic, isReady: audioReady } = useAudio()
 
   // NPC 记忆管理器（单例）
   const npcMemoryManager = useMemo(() => getNPCMemoryManager(), [])
+
+  // 游玩时长实时更新计时器
+  useEffect(() => {
+    if (!gameState) return
+
+    // 初始化游玩时长
+    const updatePlayTime = () => {
+      if (gameState?.startTime) {
+        const minutes = Math.floor((Date.now() - gameState.startTime) / 60000)
+        setPlayTimeMinutes(minutes)
+      }
+    }
+
+    // 立即更新一次
+    updatePlayTime()
+
+    // 每分钟更新一次
+    const interval = setInterval(updatePlayTime, 60000)
+
+    return () => clearInterval(interval)
+  }, [gameState?.startTime])
 
   // 获取当前剧本的场景数据
   const currentScript = sampleScripts.find((s) => s.id === scriptId)
@@ -437,7 +461,7 @@ function PlayPage() {
           {gameState && (
             <div className="mb-4 flex justify-between items-center">
               <span className="text-sm text-[var(--sea-ink-soft)]">
-                游玩时长: {Math.floor((Date.now() - gameState.startTime) / 60000)} 分钟
+                游玩时长: {playTimeMinutes} 分钟
               </span>
               {scriptTitle && gameState && (
                 <SaveButton
@@ -487,7 +511,7 @@ function PlayPage() {
                       scriptTitle: scriptTitle,
                       endingTitle: currentEndingId || '未知结局',
                       endingDescription: currentScene?.text?.replace(/^🏆.*?\n\n/, '') || '',
-                      playTime: Math.floor((Date.now() - gameState.startTime) / 60000),
+                      playTime: playTimeMinutes,
                       choices: gameState.history.length,
                       achievements: pendingAchievements.map((a) => a.title),
                       genre: currentScript?.genre,

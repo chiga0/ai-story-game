@@ -311,6 +311,11 @@ describe('state-manager', () => {
           { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
           { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
           { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+          { sceneId: 's4', text: '', choice: 'c4', timestamp: Date.now() },
+          { sceneId: 's5', text: '', choice: 'c5', timestamp: Date.now() },
+          { sceneId: 's6', text: '', choice: 'c6', timestamp: Date.now() },
+          { sceneId: 's7', text: '', choice: 'c7', timestamp: Date.now() },
+          { sceneId: 's8', text: '', choice: 'c8', timestamp: Date.now() },
         ],
         startTime: Date.now(),
       }
@@ -333,6 +338,11 @@ describe('state-manager', () => {
           { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
           { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
           { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+          { sceneId: 's4', text: '', choice: 'c4', timestamp: Date.now() },
+          { sceneId: 's5', text: '', choice: 'c5', timestamp: Date.now() },
+          { sceneId: 's6', text: '', choice: 'c6', timestamp: Date.now() },
+          { sceneId: 's7', text: '', choice: 'c7', timestamp: Date.now() },
+          { sceneId: 's8', text: '', choice: 'c8', timestamp: Date.now() },
         ],
         startTime: Date.now(),
       }
