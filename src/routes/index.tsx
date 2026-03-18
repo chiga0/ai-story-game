@@ -1,10 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useFirstVisit } from '#/hooks/useFirstVisit'
+import { OnboardingGuide } from '#/components/onboarding/OnboardingGuide'
 
 export const Route = createFileRoute('/')({ component: HomePage })
 
 function HomePage() {
+  const { isFirstVisit, markAsVisited, checked } = useFirstVisit()
+
   return (
-    <main className="page-wrap px-4 pb-8 pt-14">
+    <>
+      <main className="page-wrap px-4 pb-8 pt-14">
       <section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
         <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
@@ -18,19 +23,23 @@ function HomePage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
+            to="/create"
+            className="rounded-full bg-[var(--lagoon-deep)] px-5 py-2.5 text-sm font-semibold text-white no-underline transition hover:-translate-y-0.5 hover:opacity-90"
+          >
+            ✨ 创建剧本
+          </Link>
+          <Link
             to="/scripts"
             className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)]"
           >
-            开始探索剧本
+            探索剧本库
           </Link>
-          <a
-            href="https://tanstack.com/router"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to="/achievements"
             className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
           >
-            了解更多
-          </a>
+            🏆 成就
+          </Link>
         </div>
       </section>
 
@@ -74,43 +83,64 @@ function HomePage() {
 
       <section className="island-shell mt-8 rounded-2xl p-6">
         <p className="island-kicker mb-4">热门剧本</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/scripts/$id"
-            params={{ id: '1' }}
+            params={{ id: 'mystery-castle' }}
             className="group flex items-center gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--line)] transition hover:border-[var(--lagoon-deep)]"
           >
             <img
-              src="https://picsum.photos/seed/mystery-manor/100/100"
-              alt="神秘庄园"
+              src="https://picsum.photos/seed/mystery-castle/100/100"
+              alt="神秘古堡"
               className="w-16 h-16 rounded-lg object-cover"
             />
             <div>
               <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
-                神秘庄园
+                神秘古堡
               </h3>
-              <p className="text-sm text-[var(--sea-ink-soft)]">4人 · 2小时 · 中等难度</p>
+              <p className="text-sm text-[var(--sea-ink-soft)]">悬疑推理 · 25分钟</p>
             </div>
           </Link>
           <Link
             to="/scripts/$id"
-            params={{ id: '2' }}
+            params={{ id: 'lost-in-space' }}
             className="group flex items-center gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--line)] transition hover:border-[var(--lagoon-deep)]"
           >
             <img
-              src="https://picsum.photos/seed/time-travel/100/100"
-              alt="时空穿越"
+              src="https://picsum.photos/seed/lost-in-space/100/100"
+              alt="星际迷途"
               className="w-16 h-16 rounded-lg object-cover"
             />
             <div>
               <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
-                时空穿越
+                星际迷途
               </h3>
-              <p className="text-sm text-[var(--sea-ink-soft)]">3人 · 1.5小时 · 简单难度</p>
+              <p className="text-sm text-[var(--sea-ink-soft)]">科幻冒险 · 20分钟</p>
+            </div>
+          </Link>
+          <Link
+            to="/scripts/$id"
+            params={{ id: 'dragon-valley' }}
+            className="group flex items-center gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--line)] transition hover:border-[var(--lagoon-deep)]"
+          >
+            <img
+              src="https://picsum.photos/seed/dragon-valley/100/100"
+              alt="龙之谷"
+              className="w-16 h-16 rounded-lg object-cover"
+            />
+            <div>
+              <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
+                龙之谷
+              </h3>
+              <p className="text-sm text-[var(--sea-ink-soft)]">奇幻冒险 · 25分钟</p>
             </div>
           </Link>
         </div>
       </section>
     </main>
+
+      {/* 新手引导 */}
+      {checked && isFirstVisit && <OnboardingGuide onComplete={markAsVisited} />}
+    </>
   )
 }

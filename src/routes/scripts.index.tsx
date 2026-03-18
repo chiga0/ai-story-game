@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { sampleScripts } from '#/data/scripts'
 
 export const Route = createFileRoute('/scripts/')({
@@ -32,7 +32,12 @@ function ScriptsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sampleScripts.map((script) => (
-          <a key={script.id} href={`/play/${script.id}`} className="block group">
+          <Link
+            key={script.id}
+            to="/scripts/$id"
+            params={{ id: script.id }}
+            className="block group"
+          >
             <div className="bg-[var(--bg-soft)] rounded-lg overflow-hidden border border-[var(--sea-ink-light)] hover:border-[var(--sea-ink)] transition-colors">
               {/* 封面图 */}
               <div className="aspect-video bg-gradient-to-br from-[var(--sea-ink-light)] to-[var(--sea-ink)] flex items-center justify-center">
@@ -62,7 +67,7 @@ function ScriptsPage() {
 
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-xs text-[var(--sea-ink-soft)]">
-                    难度: {difficultyMap[script.difficulty] || '中等'}
+                    难度: {difficultyMap[script.difficulty ?? 2] || '中等'}
                   </span>
                   <span className="text-sm text-[var(--sea-ink)] group-hover:translate-x-1 transition-transform">
                     开始游戏 →
@@ -70,7 +75,7 @@ function ScriptsPage() {
                 </div>
               </div>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

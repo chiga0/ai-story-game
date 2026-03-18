@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ai-story-game",
+  "account_id": "34817bdd8eefd771f3c7ee9ef6f1a5f0",
+  "compatibility_date": "2024-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  
+  // 静态资源目录
+  "assets": {
+    "directory": ".output/public"
+  },
+  
+  // 环境变量（非敏感信息）
+  "vars": {
+    "ENVIRONMENT": "production",
+    "APP_URL": "https://game.chigao.site",
+    "BAILIAN_BASE_URL": "https://coding.dashscope.aliyuncs.com/v1"
+  }
+}

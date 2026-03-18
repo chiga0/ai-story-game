@@ -11,79 +11,45 @@ import {
   createInitialState,
   cloneState,
 } from './state-manager'
+import type {
+  Script,
+  Scene,
+  Choice,
+  Ending,
+  Effect,
+  Condition,
+  GameState,
+  HistoryEntry,
+  ChoiceResult,
+  InitialState,
+} from '../types'
 
-// 扩展的剧本类型，包含 initialState
-export interface Script extends Omit<DbScript, 'initialState'> {
-  initialState?: {
-    attributes?: Record<string, number>
-    relationships?: Record<string, number>
-  }
+// 重新导出类型，保持向后兼容
+export type {
+  Script,
+  Scene,
+  Choice,
+  Ending,
+  Effect,
+  Condition,
+  GameState,
+  HistoryEntry,
+  ChoiceResult,
 }
 
-// 游戏状态
-export interface GameState {
-  scriptId: string
-  currentScene: string
-  attributes: Record<string, number>
-  relationships: Record<string, number>
-  history: HistoryEntry[]
-  startTime: number
-}
-
-export interface HistoryEntry {
-  sceneId: string
-  text: string
-  choice?: string
-  timestamp: number
-}
-
-export interface Choice {
-  id: string
-  text: string
-  nextSceneId: string
-  effects?: Effect[]
-  condition?: Condition
-}
-
-export interface Effect {
-  attribute?: string
-  change?: number
-  relationship?: { charId: string; change: number }
-}
-
-export interface Condition {
-  attribute?: string
-  min?: number
-  max?: number
-}
-
-export interface Scene {
-  id: string
-  speaker?: string
-  text: string
-  choices?: Choice[]
-  nextSceneId?: string
-  effects?: Effect[]
-}
-
-export interface Ending {
-  id: string
-  title: string
-  description: string
-  condition: Record<string, { min?: number; max?: number }>
-}
-
-// 选择结果
-export interface ChoiceResult {
-  type: 'continue' | 'ending'
-  scene?: Scene
-  ending?: Ending
-  effects: Effect[]
+/**
+ * 扩展的剧本类型，兼容数据库类型
+ */
+export interface GameScript extends Omit<DbScript, 'initialState' | 'scenes' | 'endings' | 'characters'> {
+  initialState?: InitialState
+  scenes: Record<string, Scene>
+  endings: Ending[]
+  characters?: Record<string, any>
 }
 
 // 游戏引擎类
 export class GameEngine {
-  private script: Script | null = null
+  private script: GameScript | null = null
   private state: GameState | null = null
 
   /**
@@ -91,10 +57,9 @@ export class GameEngine {
    * @param script 剧本对象
    * @returns 初始游戏状态
    */
-  async init(script: Script): Promise<GameState> {
+  async init(script: GameScript): Promise<GameState> {
     this.script = script
-    const scenes = script.scenes as Record<string, Scene>
-    const sceneIds = Object.keys(scenes)
+    const sceneIds = Object.keys(script.scenes)
     const initialScene = sceneIds.length > 0 ? sceneIds[0] : ''
 
     // 获取初始状态
@@ -113,7 +78,7 @@ export class GameEngine {
    * @param savedState 保存的游戏状态
    * @param script 剧本对象
    */
-  async restore(savedState: GameState, script: Script): Promise<void> {
+  async restore(savedState: GameState, script: GameScript): Promise<void> {
     this.script = script
     this.state = cloneState(savedState)
   }
@@ -124,8 +89,7 @@ export class GameEngine {
    */
   getCurrentScene(): Scene | null {
     if (!this.script || !this.state) return null
-    const scenes = this.script.scenes as Record<string, Scene>
-    return scenes[this.state.currentScene] || null
+    return this.script.scenes[this.state.currentScene] || null
   }
 
   /**
@@ -181,8 +145,7 @@ export class GameEngine {
     this.state.currentScene = choice.nextSceneId
 
     // 检查结局
-    const endings = this.script.endings as Ending[]
-    const ending = checkEndingState(this.state, endings)
+    const ending = checkEndingState(this.state, this.script.endings)
 
     if (ending) {
       return {
@@ -206,11 +169,8 @@ export class GameEngine {
    */
   checkEnding(): Ending | null {
     if (!this.script || !this.state) return null
-
-    const endings = this.script.endings as Ending[]
-    if (!endings || endings.length === 0) return null
-
-    return checkEndingState(this.state, endings)
+    if (!this.script.endings || this.script.endings.length === 0) return null
+    return checkEndingState(this.state, this.script.endings)
   }
 
   /**

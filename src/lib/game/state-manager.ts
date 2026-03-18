@@ -3,21 +3,17 @@
  * 负责管理游戏状态、应用效果、评估条件
  */
 
-import type { GameState, Choice, Ending } from './engine'
+import type {
+  GameState,
+  Choice,
+  Ending,
+  Effect,
+  Condition,
+  EndingCondition,
+} from '../../types'
 
-// 效果类型定义
-export interface Effect {
-  attribute?: string
-  change?: number
-  relationship?: { charId: string; change: number }
-}
-
-// 条件类型定义
-export interface Condition {
-  attribute?: string
-  min?: number
-  max?: number
-}
+// 重新导出类型，保持向后兼容
+export type { Effect, Condition }
 
 /**
  * 应用效果到游戏状态
@@ -90,9 +86,19 @@ export function filterAvailableChoices(state: GameState, choices: Choice[]): Cho
  * 检查是否达到结局
  * @param state 当前游戏状态
  * @param endings 结局列表
+ * @param minHistoryCount 触发结局所需的最小历史记录数（默认 3）
  * @returns 匹配的结局（优先级最高的），或 null
  */
-export function checkEnding(state: GameState, endings: Ending[]): Ending | null {
+export function checkEnding(
+  state: GameState,
+  endings: Ending[],
+  minHistoryCount: number = 3
+): Ending | null {
+  // 防止游戏刚开始就触发结局：至少需要经过 minHistoryCount 次选择
+  if (state.history.length < minHistoryCount) {
+    return null
+  }
+
   const matchedEndings: Ending[] = []
 
   for (const ending of endings) {

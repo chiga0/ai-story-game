@@ -1,56 +1,230 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateText, streamText } from 'ai'
+import type { DialogueContext, GameContext, NPC, GameEvent } from '../../types'
+import {
+  type PlayerStyle,
+  type PlayerStyleAnalysis,
+  type DynamicDialogueContext,
+  type DynamicDialogueResult,
+  type HiddenClue,
+  type ClueGenerationContext,
+  type PlayerChoicePattern,
+  SYSTEM_PROMPTS,
+  DIALOGUE_TEMPLATES,
+  analyzeChoiceHistory,
+  inferPlayerStyle,
+  getStyleModifier,
+} from './prompts'
+import { loadAPIKeys, getActiveProvider, type AIProvider } from '../user/api-keys'
+import {
+  moderateText,
+  type ModerationHook,
+  createModerationHook,
+} from '../content/content-moderator'
+import { filterSensitiveWords } from '../content/sensitive-words'
 
-// 百炼平台 GLM-5 配置
-const glm = createOpenAI({
-  apiKey: process.env.BAILIAN_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.BAILIAN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-})
+// ============================================
+// AI Provider 配置
+// ============================================
 
-const model = glm('glm-5-plus')
-
-export interface DialogueContext {
-  scene: string
-  speaker?: string
-  playerHistory: string[]
-  gameState: Record<string, any>
+// 通过服务端 API 调用 AI（兼容 Cloudflare Workers）
+async function callAIServer(prompt: string, maxTokens: number = 2000): Promise<string> {
+  try {
+    const response = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, maxTokens })
+    })
+    const data = await response.json()
+    if (!data.success) {
+      throw new Error(data.error || 'AI 调用失败')
+    }
+    return data.text
+  } catch (error) {
+    console.error('AI Server Error:', error)
+    throw error
+  }
 }
 
-export interface GameContext {
-  scriptId: string
-  currentScene: string
-  attributes: Record<string, number>
-  relationships: Record<string, number>
+// 动态创建 GLM 客户端（仅在有直接 API Key 时使用）
+function createGLMClient(apiKey?: string, baseURL?: string) {
+  return createOpenAI({
+    apiKey: apiKey || 'placeholder',
+    baseURL: baseURL || 'https://coding.dashscope.aliyuncs.com/v1',
+  })
 }
 
-export interface NPC {
-  id: string
-  name: string
-  avatar?: string
-  personality: string
+// 缓存的模型实例
+let cachedModel: ReturnType<ReturnType<typeof createOpenAI>> | null = null
+let cachedProvider: AIProvider | null = null
+
+/**
+ * 获取当前模型实例
+ * 优先使用用户自定义 API Key，fallback 到系统默认
+ */
+async function getModel() {
+  const activeProvider = await getActiveProvider()
+  
+  // 如果 provider 没有变化，返回缓存
+  if (cachedModel && cachedProvider === activeProvider) {
+    return cachedModel
+  }
+  
+  const keys = await loadAPIKeys()
+  
+  switch (activeProvider) {
+    case 'openai': {
+      if (keys?.openai) {
+        const client = createOpenAI({ apiKey: keys.openai })
+        cachedModel = client('gpt-4o-mini')
+      } else {
+        const client = createOpenAIClient()
+        cachedModel = client('gpt-4o-mini')
+      }
+      break
+    }
+    case 'anthropic': {
+      // Anthropic 需要额外的 SDK
+      // fallback 到系统默认
+      const client = createGLMClient()
+      cachedModel = client('glm-5-plus')
+      break
+    }
+    case 'google': {
+      // Google AI 需要 @ai-sdk/google
+      // fallback 到系统默认
+      const client = createGLMClient()
+      cachedModel = client('glm-5-plus')
+      break
+    }
+    case 'custom': {
+      if (keys?.custom) {
+        const client = createOpenAI({
+          apiKey: keys.custom.key,
+          baseURL: keys.custom.baseUrl,
+        })
+        cachedModel = client('gpt-4o-mini')
+      } else {
+        const client = createGLMClient()
+        cachedModel = client('glm-5-plus')
+      }
+      break
+    }
+    default: {
+      const client = createGLMClient()
+      cachedModel = client('glm-5-plus')
+    }
+  }
+  
+  cachedProvider = activeProvider
+  return cachedModel
 }
 
-export interface GameEvent {
-  id: string
-  type: 'random' | 'triggered'
-  description: string
-  effects?: Record<string, any>
+// 默认模型（用于同步上下文）- 动态创建
+const model = createGLMClient()('glm-5-plus')
+
+// ============================================
+// 重试配置
+// ============================================
+
+const DEFAULT_TIMEOUT = 30000 // 30 秒
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 // 1 秒
+
+// ============================================
+// 重试工具函数
+// ============================================
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// 动态对话生成
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries?: number
+    timeout?: number
+    onRetry?: (attempt: number, error: Error) => void
+  } = {}
+): Promise<T> {
+  const { maxRetries = MAX_RETRIES, timeout = DEFAULT_TIMEOUT, onRetry } = options
+
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 创建超时 Promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('请求超时')), timeout)
+      })
+
+      // 执行请求
+      const result = await Promise.race([fn(), timeoutPromise])
+      return result
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      // 检查是否为网络错误或超时
+      const isNetworkError =
+        lastError.message.includes('网络') ||
+        lastError.message.includes('network') ||
+        lastError.message.includes('fetch') ||
+        lastError.message.includes('超时') ||
+        lastError.message.includes('timeout')
+
+      // 如果是最后一次尝试或非网络错误，直接抛出
+      if (attempt === maxRetries || !isNetworkError) {
+        throw lastError
+      }
+
+      // 调用重试回调
+      onRetry?.(attempt, lastError)
+
+      // 等待后重试
+      await sleep(RETRY_DELAY * attempt)
+    }
+  }
+
+  throw lastError || new Error('未知错误')
+}
+
+// ============================================
+// AI 调用函数
+// ============================================
+
+// 重新导出类型，保持向后兼容
+export type { DialogueContext, GameContext, NPC, GameEvent }
+export type { PlayerStyle, PlayerStyleAnalysis, DynamicDialogueContext, DynamicDialogueResult, HiddenClue, ClueGenerationContext, PlayerChoicePattern }
+
+// 动态对话生成（带重试）
 export async function generateDialogue(context: DialogueContext): Promise<string> {
-  const { text } = await generateText({
-    model,
-    prompt: `你是一个互动游戏的角色扮演助手。
+  return withRetry(
+    async () => {
+      const { text } = await generateText({
+        model,
+        prompt: `你是一个互动游戏的角色扮演助手。
 当前场景：${context.scene}
 ${context.speaker ? `说话角色：${context.speaker}` : ''}
 玩家历史选择：${context.playerHistory.join(' -> ')}
 游戏状态：${JSON.stringify(context.gameState)}
 
 请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。`,
-  })
-
-  return text
+      })
+      
+      // 过滤敏感词
+      const filterResult = filterSensitiveWords(text)
+      if (!filterResult.clean) {
+        console.warn('对话内容包含敏感词，已过滤:', filterResult.detected)
+      }
+      
+      return filterResult.filteredText
+    },
+    {
+      onRetry: (attempt, error) => {
+        console.warn(`AI 调用重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+      },
+    }
+  )
 }
 
 // NPC 个性化
@@ -62,25 +236,34 @@ export function personalizeNPC(npc: NPC, _playerChoices: string[]): NPC {
   }
 }
 
-// 随机事件生成
+// 随机事件生成（带重试）
 export async function generateRandomEvent(context: GameContext): Promise<GameEvent> {
-  const { text } = await generateText({
-    model,
-    prompt: `你是一个游戏事件生成器。
+  return withRetry(
+    async () => {
+      const { text } = await generateText({
+        model,
+        prompt: `你是一个游戏事件生成器。
 当前游戏状态：${JSON.stringify(context)}
 请生成一个随机事件，格式为 JSON：{ "description": "事件描述", "effects": { "attribute": "value" } }
 只返回 JSON，不要其他内容。`,
-  })
+      })
 
-  try {
-    return JSON.parse(text)
-  } catch {
-    return {
-      id: `event-${Date.now()}`,
-      type: 'random',
-      description: text,
+      try {
+        return JSON.parse(text)
+      } catch {
+        return {
+          id: `event-${Date.now()}`,
+          type: 'random',
+          description: text,
+        }
+      }
+    },
+    {
+      onRetry: (attempt, error) => {
+        console.warn(`事件生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+      },
     }
-  }
+  )
 }
 
 // 流式对话
@@ -99,4 +282,524 @@ ${context.speaker ? `说话角色：${context.speaker}` : ''}
   return result
 }
 
+// ============================================
+// 新增：玩家风格分析
+// ============================================
+
+/**
+ * 分析玩家决策风格
+ * @param playerChoices 玩家历史选择列表
+ * @param choiceTimes 选择时间戳列表（可选）
+ * @returns 玩家风格分析结果
+ */
+export async function analyzePlayerStyle(
+  playerChoices: string[],
+  choiceTimes?: number[]
+): Promise<PlayerStyleAnalysis> {
+  // 基于规则的快速分析
+  const pattern = analyzeChoiceHistory(playerChoices)
+  const basicStyle = inferPlayerStyle(pattern)
+
+  // 如果选择数量太少，直接返回基础分析
+  if (playerChoices.length < 5) {
+    return {
+      style: basicStyle,
+      confidence: 50 + playerChoices.length * 10,
+      traits: [`基于 ${playerChoices.length} 次选择的初步分析`],
+    }
+  }
+
+  // 使用 AI 进行深度分析
+  try {
+    return await withRetry(
+      async () => {
+        const { text } = await generateText({
+          model,
+          prompt: `${SYSTEM_PROMPTS.playerStyleAnalysis}
+
+玩家选择历史：
+${playerChoices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+请分析这个玩家的决策风格，返回 JSON 格式结果。`,
+        })
+
+        try {
+          const result = JSON.parse(text)
+          return {
+            style: result.style || basicStyle,
+            confidence: Math.min(100, Math.max(0, result.confidence || 70)),
+            traits: result.traits || [],
+          }
+        } catch {
+          // 解析失败时返回基于规则的结果
+          return {
+            style: basicStyle,
+            confidence: 70,
+            traits: ['AI 分析解析失败，使用规则推断'],
+          }
+        }
+      },
+      {
+        timeout: 15000,
+        onRetry: (attempt, error) => {
+          console.warn(`风格分析重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    // 出错时返回基于规则的结果
+    return {
+      style: basicStyle,
+      confidence: 60,
+      traits: [`降级使用规则分析: ${error instanceof Error ? error.message : '未知错误'}`],
+    }
+  }
+}
+
+// ============================================
+// 新增：动态对话生成
+// ============================================
+
+/**
+ * 根据玩家风格生成个性化对话
+ * @param context 动态对话上下文
+ * @returns 动态对话结果
+ */
+export async function generateDynamicDialogue(
+  context: DynamicDialogueContext
+): Promise<DynamicDialogueResult> {
+  const { scene, speaker, speakerPersonality, playerHistory, playerStyle, gameState, storyGenre } = context
+
+  // 获取风格修饰语
+  const styleModifier = getStyleModifier(playerStyle.style)
+
+  try {
+    return await withRetry(
+      async () => {
+        const { text } = await generateText({
+          model,
+          prompt: `${SYSTEM_PROMPTS.dynamicNPCDialogue}
+
+当前场景：${scene}
+${speaker ? `说话角色：${speaker}` : '旁白'}
+${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
+玩家风格：${playerStyle.style}（置信度：${playerStyle.confidence}%）
+玩家特质：${playerStyle.traits.join('、') || '未知'}
+故事类型：${storyGenre}
+玩家历史选择：${playerHistory.slice(-5).join(' → ')}
+游戏状态：${JSON.stringify(gameState)}
+
+风格提示：对${playerStyle.style === 'impulsive' ? '冲动型' : playerStyle.style === 'cautious' ? '谨慎型' : playerStyle.style === 'explorer' ? '探索型' : '平衡型'}玩家，使用${playerStyle.style === 'impulsive' ? '紧迫感强、强调行动' : playerStyle.style === 'cautious' ? '耐心详细、强调安全' : playerStyle.style === 'explorer' ? '神秘暗示、激发好奇' : '中性平衡'}的语气。
+
+请生成一段对话或旁白（不超过100字），并返回 JSON 格式：
+{
+  "dialogue": "对话内容",
+  "emotion": "neutral|happy|sad|angry|mysterious",
+  "hints": ["可选的提示列表"]
+}`,
+        })
+
+        try {
+          const result = JSON.parse(text)
+          
+          // 过滤敏感词
+          const filterResult = filterSensitiveWords(result.dialogue || text)
+          if (!filterResult.clean) {
+            console.warn('动态对话包含敏感词，已过滤:', filterResult.detected)
+          }
+          
+          return {
+            dialogue: filterResult.filteredText,
+            emotion: result.emotion || 'neutral',
+            hints: result.hints || [],
+          }
+        } catch {
+          // 解析失败，直接使用文本作为对话
+          // 过滤敏感词
+          const filterResult = filterSensitiveWords(text)
+          return {
+            dialogue: filterResult.filteredText,
+            emotion: 'neutral',
+            hints: styleModifier ? [styleModifier] : [],
+          }
+        }
+      },
+      {
+        timeout: 20000,
+        onRetry: (attempt, error) => {
+          console.warn(`动态对话生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    // 降级处理：生成基础对话
+    const fallbackDialogue = speaker
+      ? `${speaker}：${scene.slice(0, 50)}...`
+      : scene.slice(0, 100)
+
+    // 过滤敏感词
+    const filterResult = filterSensitiveWords(fallbackDialogue)
+
+    return {
+      dialogue: filterResult.filteredText,
+      emotion: 'neutral',
+      hints: [],
+    }
+  }
+}
+
+// ============================================
+// 新增：隐藏线索生成
+// ============================================
+
+/**
+ * 根据玩家进度生成动态线索
+ * @param context 线索生成上下文
+ * @returns 生成的隐藏线索
+ */
+export async function generateHiddenClue(context: ClueGenerationContext): Promise<HiddenClue | null> {
+  const { scene, playerProgress, discoveredClues, storyGenre, playerStyle } = context
+
+  // 如果进度太低，不生成线索
+  if (playerProgress < 10) {
+    return null
+  }
+
+  // 根据玩家风格调整线索难度
+  const clueComplexity = playerStyle === 'explorer' ? 'high' : playerStyle === 'impulsive' ? 'low' : 'medium'
+
+  try {
+    return await withRetry(
+      async () => {
+        const promptText = DIALOGUE_TEMPLATES.hiddenClueGeneration({
+          scene: scene.slice(0, 200),
+          playerProgress,
+          discoveredClues,
+          storyGenre,
+        })
+
+        const { text } = await generateText({
+          model,
+          prompt: `${promptText}
+
+线索复杂度要求：${clueComplexity}（${playerStyle === 'explorer' ? '探索型玩家喜欢复杂线索' : playerStyle === 'impulsive' ? '冲动型玩家需要明显线索' : '中等复杂度'}）
+
+只返回 JSON，不要其他内容。`,
+        })
+
+        try {
+          const result = JSON.parse(text)
+          return {
+            id: `clue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            clue: result.clue || '',
+            hint: result.hint || '',
+            importance: result.importance || 'medium',
+          }
+        } catch {
+          return null
+        }
+      },
+      {
+        timeout: 15000,
+        onRetry: (attempt, error) => {
+          console.warn(`线索生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    console.warn('线索生成失败:', error)
+    return null
+  }
+}
+
+// ============================================
+// 新增：智能对话建议
+// ============================================
+
+export interface DialogueSuggestion {
+  text: string
+  reason: string
+  riskLevel: 'low' | 'medium' | 'high'
+  expectedOutcome: string
+}
+
+/**
+ * 根据玩家风格和当前情况生成智能对话建议
+ */
+export async function generateDialogueSuggestions(
+  context: DialogueContext,
+  playerStyle: PlayerStyleAnalysis
+): Promise<DialogueSuggestion[]> {
+  try {
+    return await withRetry(
+      async () => {
+        const { text } = await generateText({
+          model,
+          prompt: `你是一个游戏顾问，根据玩家风格提供对话建议。
+
+当前场景：${context.scene}
+玩家风格：${playerStyle.style}
+玩家历史：${context.playerHistory.slice(-3).join(' → ')}
+游戏状态：${JSON.stringify(context.gameState)}
+
+请生成 2-3 个对话建议，每个建议返回 JSON 格式：
+{
+  "text": "建议的对话内容",
+  "reason": "推荐理由",
+  "riskLevel": "low|medium|high",
+  "expectedOutcome": "预期结果"
+}
+
+返回 JSON 数组格式。`,
+        })
+
+        try {
+          const result = JSON.parse(text)
+          return Array.isArray(result) ? result : []
+        } catch {
+          return []
+        }
+      },
+      {
+        timeout: 15000,
+        onRetry: (attempt, error) => {
+          console.warn(`建议生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    console.warn('建议生成失败:', error)
+    return []
+  }
+}
+
+// ============================================
+// 导出配置
+// ============================================
+
+export { DEFAULT_TIMEOUT, MAX_RETRIES }
 export { model }
+
+// ============================================
+// NPC 记忆对话生成
+// ============================================
+
+import {
+  type NPCDialogueContext,
+  type NPCDialogueResult,
+  buildNPCMemoryPrompt,
+  getDialogueStyleFromMemory,
+  generateGreetingByRelationship,
+} from './prompts'
+import type { MemoryContext, RelationshipTier } from '../game/npc-memory'
+
+/**
+ * 根据玩家风格和 NPC 记忆生成对话
+ * @param context NPC 对话上下文（含记忆）
+ * @returns NPC 对话结果
+ */
+export async function generateNPCDialogueWithContext(
+  context: NPCDialogueContext
+): Promise<NPCDialogueResult> {
+  const { scene, npcName, npcPersonality, memoryContext, playerStyle, storyGenre } = context
+
+  // 如果没有记忆上下文，降级到普通对话生成
+  if (!memoryContext) {
+    const basicContext: DialogueContext = {
+      scene,
+      speaker: npcName,
+      playerHistory: [],
+      gameState: {},
+    }
+    
+    const dialogue = await generateDialogue(basicContext)
+    
+    return {
+      dialogue,
+      emotion: 'neutral',
+      hints: [],
+    }
+  }
+
+  // 获取对话风格
+  const dialogueStyle = getDialogueStyleFromMemory(memoryContext)
+
+  try {
+    return await withRetry(
+      async () => {
+        const prompt = buildNPCMemoryPrompt(context)
+        
+        const { text } = await generateText({
+          model,
+          prompt,
+        })
+
+        try {
+          // 尝试解析 JSON
+          const result = JSON.parse(text)
+          return {
+            dialogue: result.dialogue || text,
+            emotion: result.emotion || memoryContext.currentMood,
+            hints: result.hints || [],
+            relationshipHint: result.relationshipHint,
+          }
+        } catch {
+          // 解析失败，直接使用文本
+          return {
+            dialogue: text,
+            emotion: memoryContext.currentMood,
+            hints: [dialogueStyle],
+          }
+        }
+      },
+      {
+        timeout: 20000,
+        onRetry: (attempt, error) => {
+          console.warn(`NPC 记忆对话生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    // 降级处理：根据关系等级生成简单问候
+    const greeting = generateGreetingByRelationship(
+      npcName,
+      memoryContext.relationshipTier,
+      memoryContext.currentMood
+    )
+
+    return {
+      dialogue: greeting,
+      emotion: memoryContext.currentMood,
+      hints: [],
+      relationshipHint: '无法生成详细对话，使用基础问候',
+    }
+  }
+}
+
+/**
+ * 生成 NPC 情感反应
+ * @param playerChoice 玩家选择
+ * @param memoryContext NPC 记忆上下文
+ * @param npcPersonality NPC 性格
+ * @returns 情感反应
+ */
+export async function generateNPCEmotionalResponse(
+  playerChoice: string,
+  memoryContext: MemoryContext,
+  npcPersonality: string
+): Promise<{
+  emotion: string
+  reaction: string
+  dialogueModifier: string
+}> {
+  try {
+    return await withRetry(
+      async () => {
+        const { text } = await generateText({
+          model,
+          prompt: `你是一个情感反应分析器。
+
+玩家选择："${playerChoice}"
+NPC 性格：${npcPersonality}
+当前关系：${memoryContext.relationshipTier}（${memoryContext.relationshipLevel}）
+当前情绪：${memoryContext.currentMood}
+信任度：${memoryContext.trustLevel}%
+
+分析这个选择对 NPC 的情感影响，返回 JSON 格式：
+{
+  "emotion": "happy|neutral|sad|angry|suspicious",
+  "reaction": "NPC 的内心反应描述",
+  "dialogueModifier": "对话风格调整建议"
+}`,
+        })
+
+        try {
+          return JSON.parse(text)
+        } catch {
+          return {
+            emotion: memoryContext.currentMood,
+            reaction: 'NPC 保持沉默。',
+            dialogueModifier: '',
+          }
+        }
+      },
+      {
+        timeout: 10000,
+        onRetry: (attempt, error) => {
+          console.warn(`情感反应生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
+        },
+      }
+    )
+  } catch (error) {
+    return {
+      emotion: memoryContext.currentMood,
+      reaction: 'NPC 保持沉默。',
+      dialogueModifier: '',
+    }
+  }
+}
+
+/**
+ * 根据记忆调整对话选项
+ * @param choices 原始选项列表
+ * @param memoryContext NPC 记忆上下文
+ * @returns 调整后的选项列表
+ */
+export function adjustChoicesBasedOnMemory(
+  choices: Array<{ id: string; text: string; condition?: any }>,
+  memoryContext: MemoryContext
+): Array<{ id: string; text: string; condition?: any; available: boolean; reason?: string }> {
+  return choices.map((choice) => {
+    // 敌对关系：某些友好选项不可用
+    if (memoryContext.relationshipTier === 'hostile') {
+      const friendlyKeywords = ['友善', '帮助', '关心', '信任']
+      if (friendlyKeywords.some((k) => choice.text.includes(k))) {
+        return {
+          ...choice,
+          available: false,
+          reason: '关系太差，NPC 不会接受',
+        }
+      }
+    }
+
+    // 低信任度：某些需要信任的选项不可用
+    if (memoryContext.trustLevel < 30) {
+      const trustKeywords = ['秘密', '真相', '信任', '坦诚']
+      if (trustKeywords.some((k) => choice.text.includes(k))) {
+        return {
+          ...choice,
+          available: false,
+          reason: 'NPC 不够信任你',
+        }
+      }
+    }
+
+    // 愤怒情绪：某些冷静选项不可用
+    if (memoryContext.currentMood === 'angry') {
+      const calmKeywords = ['平静', '冷静', '慢慢', '等一下']
+      if (calmKeywords.some((k) => choice.text.includes(k))) {
+        return {
+          ...choice,
+          available: true,
+          reason: 'NPC 正在气头上，效果可能不好',
+        }
+      }
+    }
+
+    return {
+      ...choice,
+      available: true,
+    }
+  })
+}
+
+// 导出新的类型
+export type { NPCDialogueContext, NPCDialogueResult }
+export type { MemoryContext, RelationshipTier } from '../game/npc-memory'
+
+// ============================================
+// 内容审核钩子导出
+// ============================================
+
+export { createModerationHook }
+export type { ModerationHook } from '../content/content-moderator'

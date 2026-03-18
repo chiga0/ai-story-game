@@ -9,13 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as CreateRouteImport } from './routes/create'
+import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScriptsIndexRouteImport } from './routes/scripts.index'
 import { Route as SavesIndexRouteImport } from './routes/saves.index'
+import { Route as ShareShareIdRouteImport } from './routes/share.$shareId'
 import { Route as ScriptsIdRouteImport } from './routes/scripts.$id'
 import { Route as PlayScriptIdRouteImport } from './routes/play.$scriptId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AchievementsRoute = AchievementsRouteImport.update({
+  id: '/achievements',
+  path: '/achievements',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -36,6 +55,11 @@ const SavesIndexRoute = SavesIndexRouteImport.update({
   path: '/saves/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareShareIdRoute = ShareShareIdRouteImport.update({
+  id: '/share/$shareId',
+  path: '/share/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScriptsIdRoute = ScriptsIdRouteImport.update({
   id: '/scripts/$id',
   path: '/scripts/$id',
@@ -50,16 +74,24 @@ const PlayScriptIdRoute = PlayScriptIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/achievements': typeof AchievementsRoute
+  '/create': typeof CreateRoute
+  '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/share/$shareId': typeof ShareShareIdRoute
   '/saves/': typeof SavesIndexRoute
   '/scripts/': typeof ScriptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/achievements': typeof AchievementsRoute
+  '/create': typeof CreateRoute
+  '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/share/$shareId': typeof ShareShareIdRoute
   '/saves': typeof SavesIndexRoute
   '/scripts': typeof ScriptsIndexRoute
 }
@@ -67,8 +99,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/achievements': typeof AchievementsRoute
+  '/create': typeof CreateRoute
+  '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
+  '/share/$shareId': typeof ShareShareIdRoute
   '/saves/': typeof SavesIndexRoute
   '/scripts/': typeof ScriptsIndexRoute
 }
@@ -77,24 +113,36 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/achievements'
+    | '/create'
+    | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
+    | '/share/$shareId'
     | '/saves/'
     | '/scripts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/achievements'
+    | '/create'
+    | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
+    | '/share/$shareId'
     | '/saves'
     | '/scripts'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/achievements'
+    | '/create'
+    | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
+    | '/share/$shareId'
     | '/saves/'
     | '/scripts/'
   fileRoutesById: FileRoutesById
@@ -102,14 +150,39 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  AchievementsRoute: typeof AchievementsRoute
+  CreateRoute: typeof CreateRoute
+  SettingsRoute: typeof SettingsRoute
   PlayScriptIdRoute: typeof PlayScriptIdRoute
   ScriptsIdRoute: typeof ScriptsIdRoute
+  ShareShareIdRoute: typeof ShareShareIdRoute
   SavesIndexRoute: typeof SavesIndexRoute
   ScriptsIndexRoute: typeof ScriptsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/achievements': {
+      id: '/achievements'
+      path: '/achievements'
+      fullPath: '/achievements'
+      preLoaderRoute: typeof AchievementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -138,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SavesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/$shareId': {
+      id: '/share/$shareId'
+      path: '/share/$shareId'
+      fullPath: '/share/$shareId'
+      preLoaderRoute: typeof ShareShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/scripts/$id': {
       id: '/scripts/$id'
       path: '/scripts/$id'
@@ -158,8 +238,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  AchievementsRoute: AchievementsRoute,
+  CreateRoute: CreateRoute,
+  SettingsRoute: SettingsRoute,
   PlayScriptIdRoute: PlayScriptIdRoute,
   ScriptsIdRoute: ScriptsIdRoute,
+  ShareShareIdRoute: ShareShareIdRoute,
   SavesIndexRoute: SavesIndexRoute,
   ScriptsIndexRoute: ScriptsIndexRoute,
 }

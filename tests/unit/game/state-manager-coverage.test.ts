@@ -18,7 +18,11 @@ describe('State Manager - 覆盖率补充测试', () => {
       currentScene: 'start',
       attributes: attrs,
       relationships: rels,
-      history: [],
+      history: [
+        { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+        { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+        { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+      ],
       startTime: Date.now(),
     })
 
@@ -104,7 +108,11 @@ describe('State Manager - 覆盖率补充测试', () => {
       currentScene: 'start',
       attributes: attrs,
       relationships: {},
-      history: [],
+      history: [
+        { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+        { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+        { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+      ],
       startTime: Date.now(),
     })
 
@@ -174,7 +182,11 @@ describe('State Manager - 覆盖率补充测试', () => {
       currentScene: 'start',
       attributes: attrs,
       relationships: {},
-      history: [],
+      history: [
+        { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+        { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+        { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+      ],
       startTime: Date.now(),
     })
 

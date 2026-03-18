@@ -286,7 +286,11 @@ describe('state-manager', () => {
         currentScene: 'start',
         attributes: { courage: 5 },
         relationships: {},
-        history: [],
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+          { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+          { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+        ],
         startTime: Date.now(),
       }
 
@@ -303,7 +307,11 @@ describe('state-manager', () => {
         currentScene: 'start',
         attributes: { courage: 15 },
         relationships: {},
-        history: [],
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+          { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+          { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+        ],
         startTime: Date.now(),
       }
 
@@ -321,7 +329,11 @@ describe('state-manager', () => {
         currentScene: 'start',
         attributes: { courage: 15, wisdom: 10 },
         relationships: {},
-        history: [],
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+          { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+          { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+        ],
         startTime: Date.now(),
       }
 
@@ -340,7 +352,11 @@ describe('state-manager', () => {
         currentScene: 'start',
         attributes: {},
         relationships: {},
-        history: [],
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+          { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+          { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+        ],
         startTime: Date.now(),
       }
 
@@ -358,7 +374,11 @@ describe('state-manager', () => {
         currentScene: 'start',
         attributes: { courage: 15, wisdom: 10 },
         relationships: {},
-        history: [],
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+          { sceneId: 's2', text: '', choice: 'c2', timestamp: Date.now() },
+          { sceneId: 's3', text: '', choice: 'c3', timestamp: Date.now() },
+        ],
         startTime: Date.now(),
       }
 
@@ -368,6 +388,26 @@ describe('state-manager', () => {
 
       const ending = checkEnding(state, endings)
       expect(ending?.id).toBe('perfect')
+    })
+
+    it('历史记录不足时应返回 null', () => {
+      const state: GameState = {
+        scriptId: 'test',
+        currentScene: 'start',
+        attributes: { courage: 15 },
+        relationships: {},
+        history: [
+          { sceneId: 's1', text: '', choice: 'c1', timestamp: Date.now() },
+        ],
+        startTime: Date.now(),
+      }
+
+      const endings = [
+        createEnding('good', { courage: { min: 10 } }),
+      ]
+
+      // 历史记录少于 3 条，不应触发结局
+      expect(checkEnding(state, endings)).toBeNull()
     })
   })
 

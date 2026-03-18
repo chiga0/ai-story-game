@@ -240,6 +240,28 @@ describe('GameEngine - 覆盖率补充测试', () => {
             choices: [
               {
                 id: 'c1',
+                text: '继续',
+                nextSceneId: 'scene2',
+              },
+            ],
+          },
+          scene2: {
+            id: 'scene2',
+            text: '场景2',
+            choices: [
+              {
+                id: 'c2',
+                text: '继续',
+                nextSceneId: 'scene3',
+              },
+            ],
+          },
+          scene3: {
+            id: 'scene3',
+            text: '场景3',
+            choices: [
+              {
+                id: 'c3',
                 text: '结束',
                 nextSceneId: 'ending',
               },
@@ -266,6 +288,8 @@ describe('GameEngine - 覆盖率补充测试', () => {
 
       await engine.init(script)
       await engine.processChoice('c1')
+      await engine.processChoice('c2')
+      await engine.processChoice('c3')
       
       // 检查结局
       const ending = engine.checkEnding()
@@ -279,6 +303,39 @@ describe('GameEngine - 覆盖率补充测试', () => {
           start: {
             id: 'start',
             text: '开始',
+            choices: [
+              {
+                id: 'c1',
+                text: '继续',
+                nextSceneId: 'scene2',
+              },
+            ],
+          },
+          scene2: {
+            id: 'scene2',
+            text: '场景2',
+            choices: [
+              {
+                id: 'c2',
+                text: '继续',
+                nextSceneId: 'scene3',
+              },
+            ],
+          },
+          scene3: {
+            id: 'scene3',
+            text: '场景3',
+            choices: [
+              {
+                id: 'c3',
+                text: '继续',
+                nextSceneId: 'end',
+              },
+            ],
+          },
+          end: {
+            id: 'end',
+            text: '结局场景',
           },
         },
         endings: [
@@ -302,6 +359,12 @@ describe('GameEngine - 覆盖率补充测试', () => {
       })
 
       await engine.init(script)
+      
+      // 添加足够的历史记录
+      await engine.processChoice('c1')
+      await engine.processChoice('c2')
+      await engine.processChoice('c3')
+      
       const ending = engine.checkEnding()
       // 应该返回第一个满足条件的结局
       expect(ending?.id).toBe('best')
