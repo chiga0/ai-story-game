@@ -291,7 +291,21 @@ describe('GameEngine - 覆盖率补充测试', () => {
       await engine.processChoice('c2')
       await engine.processChoice('c3')
       
-      // 检查结局
+      // 检查结局 - 需要8次选择才能触发，这里只有3次，所以需要手动设置历史
+      const state = engine.getState()
+      if (state) {
+        // 手动添加更多历史记录以满足8次的要求
+        for (let i = 4; i <= 8; i++) {
+          state.history.push({
+            sceneId: `s${i}`,
+            text: '',
+            choice: `c${i}`,
+            timestamp: Date.now()
+          })
+        }
+        await engine.restore(state, script)
+      }
+      
       const ending = engine.checkEnding()
       expect(ending).not.toBeNull()
       expect(ending?.id).toBe('good')
@@ -360,10 +374,24 @@ describe('GameEngine - 覆盖率补充测试', () => {
 
       await engine.init(script)
       
-      // 添加足够的历史记录
+      // 添加足够的历史记录 (需要8次)
       await engine.processChoice('c1')
       await engine.processChoice('c2')
       await engine.processChoice('c3')
+      
+      // 手动添加更多历史记录以满足8次的要求
+      const state = engine.getState()
+      if (state) {
+        for (let i = 4; i <= 8; i++) {
+          state.history.push({
+            sceneId: `s${i}`,
+            text: '',
+            choice: `c${i}`,
+            timestamp: Date.now()
+          })
+        }
+        await engine.restore(state, script)
+      }
       
       const ending = engine.checkEnding()
       // 应该返回第一个满足条件的结局

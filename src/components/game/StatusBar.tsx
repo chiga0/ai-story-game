@@ -14,6 +14,12 @@ export function StatusBar({ attributes, relationships, characterNames }: StatusB
     luck: '运气',
     health: '健康',
     sanity: '理智',
+    clue: '线索',
+    suspicion: '怀疑',
+    evidence: '证据',
+    leadership: '领导力',
+    trust: '信任',
+    dragonTrust: '龙族信任',
   }
 
   const getAttributeColor = (value: number): string => {

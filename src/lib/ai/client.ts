@@ -1,5 +1,3 @@
-import { createOpenAI } from '@ai-sdk/openai'
-import { generateText, streamText } from 'ai'
 import type { DialogueContext, GameContext, NPC, GameEvent } from '../../types'
 import {
   type PlayerStyle,
@@ -24,10 +22,18 @@ import {
 import { filterSensitiveWords } from '../content/sensitive-words'
 
 // ============================================
-// AI Provider 配置
+// AI Provider 配置 - 通过后端代理调用
 // ============================================
 
-// 通过服务端 API 调用 AI（兼容 Cloudflare Workers）
+// 重试配置
+const DEFAULT_TIMEOUT = 30000 // 30 秒
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 // 1 秒
+
+/**
+ * 通过后端 API 调用 AI（避免 CORS 问题）
+ * 所有 AI 调用都通过服务端代理
+ */
 async function callAIServer(prompt: string, maxTokens: number = 2000): Promise<string> {
   try {
     const response = await fetch('/api/ai/generate', {
@@ -45,91 +51,6 @@ async function callAIServer(prompt: string, maxTokens: number = 2000): Promise<s
     throw error
   }
 }
-
-// 动态创建 GLM 客户端（仅在有直接 API Key 时使用）
-function createGLMClient(apiKey?: string, baseURL?: string) {
-  return createOpenAI({
-    apiKey: apiKey || 'placeholder',
-    baseURL: baseURL || 'https://coding.dashscope.aliyuncs.com/v1',
-  })
-}
-
-// 缓存的模型实例
-let cachedModel: ReturnType<ReturnType<typeof createOpenAI>> | null = null
-let cachedProvider: AIProvider | null = null
-
-/**
- * 获取当前模型实例
- * 优先使用用户自定义 API Key，fallback 到系统默认
- */
-async function getModel() {
-  const activeProvider = await getActiveProvider()
-  
-  // 如果 provider 没有变化，返回缓存
-  if (cachedModel && cachedProvider === activeProvider) {
-    return cachedModel
-  }
-  
-  const keys = await loadAPIKeys()
-  
-  switch (activeProvider) {
-    case 'openai': {
-      if (keys?.openai) {
-        const client = createOpenAI({ apiKey: keys.openai })
-        cachedModel = client('gpt-4o-mini')
-      } else {
-        const client = createOpenAIClient()
-        cachedModel = client('gpt-4o-mini')
-      }
-      break
-    }
-    case 'anthropic': {
-      // Anthropic 需要额外的 SDK
-      // fallback 到系统默认
-      const client = createGLMClient()
-      cachedModel = client('glm-5-plus')
-      break
-    }
-    case 'google': {
-      // Google AI 需要 @ai-sdk/google
-      // fallback 到系统默认
-      const client = createGLMClient()
-      cachedModel = client('glm-5-plus')
-      break
-    }
-    case 'custom': {
-      if (keys?.custom) {
-        const client = createOpenAI({
-          apiKey: keys.custom.key,
-          baseURL: keys.custom.baseUrl,
-        })
-        cachedModel = client('gpt-4o-mini')
-      } else {
-        const client = createGLMClient()
-        cachedModel = client('glm-5-plus')
-      }
-      break
-    }
-    default: {
-      const client = createGLMClient()
-      cachedModel = client('glm-5-plus')
-    }
-  }
-  
-  cachedProvider = activeProvider
-  return cachedModel
-}
-
-// 默认模型（用于同步上下文）- 动态创建
-const model = createGLMClient()('glm-5-plus')
-
-// ============================================
-// 重试配置
-// ============================================
-
-const DEFAULT_TIMEOUT = 30000 // 30 秒
-const MAX_RETRIES = 3
-const RETRY_DELAY = 1000 // 1 秒
 
 // ============================================
 // 重试工具函数
@@ -189,27 +110,26 @@ async function withRetry<T>(
 }
 
 // ============================================
-// AI 调用函数
+// AI 调用函数 - 全部通过后端代理
 // ============================================
 
 // 重新导出类型，保持向后兼容
 export type { DialogueContext, GameContext, NPC, GameEvent }
 export type { PlayerStyle, PlayerStyleAnalysis, DynamicDialogueContext, DynamicDialogueResult, HiddenClue, ClueGenerationContext, PlayerChoicePattern }
 
-// 动态对话生成（带重试）
+// 动态对话生成（带重试）- 通过后端代理
 export async function generateDialogue(context: DialogueContext): Promise<string> {
   return withRetry(
     async () => {
-      const { text } = await generateText({
-        model,
-        prompt: `你是一个互动游戏的角色扮演助手。
+      const prompt = `你是一个互动游戏的角色扮演助手。
 当前场景：${context.scene}
 ${context.speaker ? `说话角色：${context.speaker}` : ''}
 玩家历史选择：${context.playerHistory.join(' -> ')}
 游戏状态：${JSON.stringify(context.gameState)}
 
-请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。`,
-      })
+请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。`
+      
+      const text = await callAIServer(prompt)
       
       // 过滤敏感词
       const filterResult = filterSensitiveWords(text)
@@ -229,24 +149,22 @@ ${context.speaker ? `说话角色：${context.speaker}` : ''}
 
 // NPC 个性化
 export function personalizeNPC(npc: NPC, _playerChoices: string[]): NPC {
-  // TODO: 根据 playerChoices 调整 NPC 行为
   return {
     ...npc,
     personality: `${npc.personality}（根据玩家选择已调整）`,
   }
 }
 
-// 随机事件生成（带重试）
+// 随机事件生成（带重试）- 通过后端代理
 export async function generateRandomEvent(context: GameContext): Promise<GameEvent> {
   return withRetry(
     async () => {
-      const { text } = await generateText({
-        model,
-        prompt: `你是一个游戏事件生成器。
+      const prompt = `你是一个游戏事件生成器。
 当前游戏状态：${JSON.stringify(context)}
 请生成一个随机事件，格式为 JSON：{ "description": "事件描述", "effects": { "attribute": "value" } }
-只返回 JSON，不要其他内容。`,
-      })
+只返回 JSON，不要其他内容。`
+      
+      const text = await callAIServer(prompt)
 
       try {
         return JSON.parse(text)
@@ -266,31 +184,12 @@ export async function generateRandomEvent(context: GameContext): Promise<GameEve
   )
 }
 
-// 流式对话
-export async function streamDialogue(context: DialogueContext) {
-  const result = streamText({
-    model,
-    prompt: `你是一个互动游戏的角色扮演助手。
-当前场景：${context.scene}
-${context.speaker ? `说话角色：${context.speaker}` : ''}
-玩家历史选择：${context.playerHistory.join(' -> ')}
-游戏状态：${JSON.stringify(context.gameState)}
-
-请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。`,
-  })
-
-  return result
-}
-
 // ============================================
-// 新增：玩家风格分析
+// 玩家风格分析
 // ============================================
 
 /**
  * 分析玩家决策风格
- * @param playerChoices 玩家历史选择列表
- * @param choiceTimes 选择时间戳列表（可选）
- * @returns 玩家风格分析结果
  */
 export async function analyzePlayerStyle(
   playerChoices: string[],
@@ -313,15 +212,14 @@ export async function analyzePlayerStyle(
   try {
     return await withRetry(
       async () => {
-        const { text } = await generateText({
-          model,
-          prompt: `${SYSTEM_PROMPTS.playerStyleAnalysis}
+        const prompt = `${SYSTEM_PROMPTS.playerStyleAnalysis}
 
 玩家选择历史：
 ${playerChoices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 
-请分析这个玩家的决策风格，返回 JSON 格式结果。`,
-        })
+请分析这个玩家的决策风格，返回 JSON 格式结果。`
+
+        const text = await callAIServer(prompt, 1000)
 
         try {
           const result = JSON.parse(text)
@@ -331,7 +229,6 @@ ${playerChoices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
             traits: result.traits || [],
           }
         } catch {
-          // 解析失败时返回基于规则的结果
           return {
             style: basicStyle,
             confidence: 70,
@@ -347,7 +244,6 @@ ${playerChoices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
       }
     )
   } catch (error) {
-    // 出错时返回基于规则的结果
     return {
       style: basicStyle,
       confidence: 60,
@@ -357,13 +253,11 @@ ${playerChoices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 }
 
 // ============================================
-// 新增：动态对话生成
+// 动态对话生成
 // ============================================
 
 /**
  * 根据玩家风格生成个性化对话
- * @param context 动态对话上下文
- * @returns 动态对话结果
  */
 export async function generateDynamicDialogue(
   context: DynamicDialogueContext
@@ -376,9 +270,7 @@ export async function generateDynamicDialogue(
   try {
     return await withRetry(
       async () => {
-        const { text } = await generateText({
-          model,
-          prompt: `${SYSTEM_PROMPTS.dynamicNPCDialogue}
+        const prompt = `${SYSTEM_PROMPTS.dynamicNPCDialogue}
 
 当前场景：${scene}
 ${speaker ? `说话角色：${speaker}` : '旁白'}
@@ -396,8 +288,9 @@ ${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
   "dialogue": "对话内容",
   "emotion": "neutral|happy|sad|angry|mysterious",
   "hints": ["可选的提示列表"]
-}`,
-        })
+}`
+
+        const text = await callAIServer(prompt)
 
         try {
           const result = JSON.parse(text)
@@ -414,8 +307,6 @@ ${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
             hints: result.hints || [],
           }
         } catch {
-          // 解析失败，直接使用文本作为对话
-          // 过滤敏感词
           const filterResult = filterSensitiveWords(text)
           return {
             dialogue: filterResult.filteredText,
@@ -437,7 +328,6 @@ ${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
       ? `${speaker}：${scene.slice(0, 50)}...`
       : scene.slice(0, 100)
 
-    // 过滤敏感词
     const filterResult = filterSensitiveWords(fallbackDialogue)
 
     return {
@@ -449,23 +339,19 @@ ${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
 }
 
 // ============================================
-// 新增：隐藏线索生成
+// 隐藏线索生成
 // ============================================
 
 /**
  * 根据玩家进度生成动态线索
- * @param context 线索生成上下文
- * @returns 生成的隐藏线索
  */
 export async function generateHiddenClue(context: ClueGenerationContext): Promise<HiddenClue | null> {
   const { scene, playerProgress, discoveredClues, storyGenre, playerStyle } = context
 
-  // 如果进度太低，不生成线索
   if (playerProgress < 10) {
     return null
   }
 
-  // 根据玩家风格调整线索难度
   const clueComplexity = playerStyle === 'explorer' ? 'high' : playerStyle === 'impulsive' ? 'low' : 'medium'
 
   try {
@@ -478,14 +364,11 @@ export async function generateHiddenClue(context: ClueGenerationContext): Promis
           storyGenre,
         })
 
-        const { text } = await generateText({
-          model,
-          prompt: `${promptText}
+        const text = await callAIServer(`${promptText}
 
 线索复杂度要求：${clueComplexity}（${playerStyle === 'explorer' ? '探索型玩家喜欢复杂线索' : playerStyle === 'impulsive' ? '冲动型玩家需要明显线索' : '中等复杂度'}）
 
-只返回 JSON，不要其他内容。`,
-        })
+只返回 JSON，不要其他内容。`, 1000)
 
         try {
           const result = JSON.parse(text)
@@ -513,7 +396,7 @@ export async function generateHiddenClue(context: ClueGenerationContext): Promis
 }
 
 // ============================================
-// 新增：智能对话建议
+// 智能对话建议
 // ============================================
 
 export interface DialogueSuggestion {
@@ -533,9 +416,7 @@ export async function generateDialogueSuggestions(
   try {
     return await withRetry(
       async () => {
-        const { text } = await generateText({
-          model,
-          prompt: `你是一个游戏顾问，根据玩家风格提供对话建议。
+        const prompt = `你是一个游戏顾问，根据玩家风格提供对话建议。
 
 当前场景：${context.scene}
 玩家风格：${playerStyle.style}
@@ -550,8 +431,9 @@ export async function generateDialogueSuggestions(
   "expectedOutcome": "预期结果"
 }
 
-返回 JSON 数组格式。`,
-        })
+返回 JSON 数组格式。`
+
+        const text = await callAIServer(prompt, 1000)
 
         try {
           const result = JSON.parse(text)
@@ -578,7 +460,6 @@ export async function generateDialogueSuggestions(
 // ============================================
 
 export { DEFAULT_TIMEOUT, MAX_RETRIES }
-export { model }
 
 // ============================================
 // NPC 记忆对话生成
@@ -595,15 +476,12 @@ import type { MemoryContext, RelationshipTier } from '../game/npc-memory'
 
 /**
  * 根据玩家风格和 NPC 记忆生成对话
- * @param context NPC 对话上下文（含记忆）
- * @returns NPC 对话结果
  */
 export async function generateNPCDialogueWithContext(
   context: NPCDialogueContext
 ): Promise<NPCDialogueResult> {
   const { scene, npcName, npcPersonality, memoryContext, playerStyle, storyGenre } = context
 
-  // 如果没有记忆上下文，降级到普通对话生成
   if (!memoryContext) {
     const basicContext: DialogueContext = {
       scene,
@@ -621,21 +499,15 @@ export async function generateNPCDialogueWithContext(
     }
   }
 
-  // 获取对话风格
   const dialogueStyle = getDialogueStyleFromMemory(memoryContext)
 
   try {
     return await withRetry(
       async () => {
         const prompt = buildNPCMemoryPrompt(context)
-        
-        const { text } = await generateText({
-          model,
-          prompt,
-        })
+        const text = await callAIServer(prompt)
 
         try {
-          // 尝试解析 JSON
           const result = JSON.parse(text)
           return {
             dialogue: result.dialogue || text,
@@ -644,7 +516,6 @@ export async function generateNPCDialogueWithContext(
             relationshipHint: result.relationshipHint,
           }
         } catch {
-          // 解析失败，直接使用文本
           return {
             dialogue: text,
             emotion: memoryContext.currentMood,
@@ -660,7 +531,6 @@ export async function generateNPCDialogueWithContext(
       }
     )
   } catch (error) {
-    // 降级处理：根据关系等级生成简单问候
     const greeting = generateGreetingByRelationship(
       npcName,
       memoryContext.relationshipTier,
@@ -678,10 +548,6 @@ export async function generateNPCDialogueWithContext(
 
 /**
  * 生成 NPC 情感反应
- * @param playerChoice 玩家选择
- * @param memoryContext NPC 记忆上下文
- * @param npcPersonality NPC 性格
- * @returns 情感反应
  */
 export async function generateNPCEmotionalResponse(
   playerChoice: string,
@@ -695,9 +561,7 @@ export async function generateNPCEmotionalResponse(
   try {
     return await withRetry(
       async () => {
-        const { text } = await generateText({
-          model,
-          prompt: `你是一个情感反应分析器。
+        const prompt = `你是一个情感反应分析器。
 
 玩家选择："${playerChoice}"
 NPC 性格：${npcPersonality}
@@ -710,8 +574,9 @@ NPC 性格：${npcPersonality}
   "emotion": "happy|neutral|sad|angry|suspicious",
   "reaction": "NPC 的内心反应描述",
   "dialogueModifier": "对话风格调整建议"
-}`,
-        })
+}`
+
+        const text = await callAIServer(prompt, 500)
 
         try {
           return JSON.parse(text)
@@ -741,16 +606,12 @@ NPC 性格：${npcPersonality}
 
 /**
  * 根据记忆调整对话选项
- * @param choices 原始选项列表
- * @param memoryContext NPC 记忆上下文
- * @returns 调整后的选项列表
  */
 export function adjustChoicesBasedOnMemory(
   choices: Array<{ id: string; text: string; condition?: any }>,
   memoryContext: MemoryContext
 ): Array<{ id: string; text: string; condition?: any; available: boolean; reason?: string }> {
   return choices.map((choice) => {
-    // 敌对关系：某些友好选项不可用
     if (memoryContext.relationshipTier === 'hostile') {
       const friendlyKeywords = ['友善', '帮助', '关心', '信任']
       if (friendlyKeywords.some((k) => choice.text.includes(k))) {
@@ -762,7 +623,6 @@ export function adjustChoicesBasedOnMemory(
       }
     }
 
-    // 低信任度：某些需要信任的选项不可用
     if (memoryContext.trustLevel < 30) {
       const trustKeywords = ['秘密', '真相', '信任', '坦诚']
       if (trustKeywords.some((k) => choice.text.includes(k))) {
@@ -774,7 +634,6 @@ export function adjustChoicesBasedOnMemory(
       }
     }
 
-    // 愤怒情绪：某些冷静选项不可用
     if (memoryContext.currentMood === 'angry') {
       const calmKeywords = ['平静', '冷静', '慢慢', '等一下']
       if (calmKeywords.some((k) => choice.text.includes(k))) {

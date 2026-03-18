@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as AboutRouteImport } from './routes/about'
@@ -23,6 +24,11 @@ import { Route as PlayScriptIdRouteImport } from './routes/play.$scriptId'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreateRoute = CreateRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/achievements': typeof AchievementsRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/achievements': typeof AchievementsRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/achievements': typeof AchievementsRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/achievements'
     | '/create'
+    | '/privacy'
     | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/achievements'
     | '/create'
+    | '/privacy'
     | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/achievements'
     | '/create'
+    | '/privacy'
     | '/settings'
     | '/play/$scriptId'
     | '/scripts/$id'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AchievementsRoute: typeof AchievementsRoute
   CreateRoute: typeof CreateRoute
+  PrivacyRoute: typeof PrivacyRoute
   SettingsRoute: typeof SettingsRoute
   PlayScriptIdRoute: typeof PlayScriptIdRoute
   ScriptsIdRoute: typeof ScriptsIdRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AchievementsRoute: AchievementsRoute,
   CreateRoute: CreateRoute,
+  PrivacyRoute: PrivacyRoute,
   SettingsRoute: SettingsRoute,
   PlayScriptIdRoute: PlayScriptIdRoute,
   ScriptsIdRoute: ScriptsIdRoute,

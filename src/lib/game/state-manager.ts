@@ -86,13 +86,13 @@ export function filterAvailableChoices(state: GameState, choices: Choice[]): Cho
  * 检查是否达到结局
  * @param state 当前游戏状态
  * @param endings 结局列表
- * @param minHistoryCount 触发结局所需的最小历史记录数（默认 5，避免游戏流程过短）
+ * @param minHistoryCount 触发结局所需的最小历史记录数（默认 8，确保玩家有足够的游戏体验）
  * @returns 匹配的结局（优先级最高的），或 null
  */
 export function checkEnding(
   state: GameState,
   endings: Ending[],
-  minHistoryCount: number = 5
+  minHistoryCount: number = 8
 ): Ending | null {
   // 防止游戏刚开始就触发结局：至少需要经过 minHistoryCount 次选择
   if (state.history.length < minHistoryCount) {
