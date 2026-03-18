@@ -18,44 +18,26 @@ import { loadAPIKeys, type UserAPIKeys } from '../user/api-keys'
 // ============================================
 
 async function callAIGenerate(prompt: string, maxTokens: number = 2000): Promise<string> {
-  // 从 localStorage 加载用户配置的 API Key
-  const keys = await loadAPIKeys()
-  
-  // 优先使用用户配置的 custom API
-  let apiKey: string | undefined
-  let baseURL = 'https://coding.dashscope.aliyuncs.com/v1'
-  
-  if (keys?.custom) {
-    apiKey = keys.custom.key
-    baseURL = keys.custom.baseUrl
-  } else if (keys?.openai) {
-    apiKey = keys.openai
-  } else {
-    // 如果用户没有配置，提示用户去设置
-    throw new Error('请先在"设置"页面配置您的 API Key')
-  }
-  
+  // 通过后端代理调用 AI API，避免 CORS 问题
   try {
-    const response = await fetch(`${baseURL}/chat/completions`, {
+    const response = await fetch('/api/ai/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'glm-5-plus',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: maxTokens
-      })
+        prompt,
+        maxTokens,
+      }),
     })
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error?.message || `API 请求失败: ${response.status}`)
-    }
-    
+
     const data = await response.json()
-    return data.choices?.[0]?.message?.content || ''
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `API 请求失败: ${response.status}`)
+    }
+
+    return data.text || ''
   } catch (error) {
     if (error instanceof Error) {
       throw error
