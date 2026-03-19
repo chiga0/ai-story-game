@@ -11,11 +11,13 @@ interface DialogueBoxProps {
 export function DialogueBox({ speaker, text, avatar, onTypingComplete }: DialogueBoxProps) {
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(true)
+  const [showSkip, setShowSkip] = useState(true)
   const textContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setDisplayedText('')
     setIsTyping(true)
+    setShowSkip(true)
 
     let index = 0
     const interval = setInterval(() => {
@@ -28,6 +30,7 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
         }
       } else {
         setIsTyping(false)
+        setShowSkip(false)
         clearInterval(interval)
         onTypingComplete?.()
       }
@@ -35,6 +38,14 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
 
     return () => clearInterval(interval)
   }, [text, onTypingComplete])
+
+  // 跳过打字动画
+  const handleSkip = () => {
+    setDisplayedText(text)
+    setIsTyping(false)
+    setShowSkip(false)
+    onTypingComplete?.()
+  }
 
   return (
     <Card className="bg-black/80 backdrop-blur-sm border-gray-700">
@@ -61,8 +72,17 @@ export function DialogueBox({ speaker, text, avatar, onTypingComplete }: Dialogu
               className="text-white leading-relaxed whitespace-pre-wrap break-words max-h-60 overflow-y-auto"
             >
               {displayedText}
-              {isTyping && <span className="animate-pulse">▌</span>}
             </div>
+
+            {/* 跳过按钮 */}
+            {showSkip && isTyping && (
+              <button
+                onClick={handleSkip}
+                className="mt-2 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                ⏭️ 跳过动画
+              </button>
+            )}
           </div>
         </div>
       </CardContent>

@@ -15,5 +15,13 @@
     "ENVIRONMENT": "production",
     "APP_URL": "https://game.chigao.site",
     "BAILIAN_BASE_URL": "https://coding.dashscope.aliyuncs.com/v1"
-  }
+  },
+  
+  // 自定义域名路由
+  "routes": [
+    {
+      "pattern": "game.chigao.site/*",
+      "zone_id": "cbbe9c7c9c4e75fa516455865a8e35bc"
+    }
+  ]
 }

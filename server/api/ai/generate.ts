@@ -1,4 +1,8 @@
-import { eventHandler, readBody, getHeader } from 'h3'
+/**
+ * AI 剧本生成 API
+ * Nitro 服务端路由 - 通过 /api/ai/generate 访问
+ */
+import { eventHandler, readBody } from 'h3'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
