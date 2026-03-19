@@ -98,7 +98,7 @@ function HomePage() {
               <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
                 神秘古堡
               </h3>
-              <p className="text-sm text-[var(--sea-ink-soft)]">悬疑推理 · 25分钟</p>
+              <p className="text-sm text-[var(--sea-ink-soft)]">悬疑推理 · 15分钟</p>
             </div>
           </Link>
           <Link
@@ -115,7 +115,7 @@ function HomePage() {
               <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
                 星际迷途
               </h3>
-              <p className="text-sm text-[var(--sea-ink-soft)]">科幻冒险 · 20分钟</p>
+              <p className="text-sm text-[var(--sea-ink-soft)]">科幻冒险 · 12分钟</p>
             </div>
           </Link>
           <Link
@@ -132,7 +132,7 @@ function HomePage() {
               <h3 className="font-semibold text-[var(--sea-ink)] group-hover:text-[var(--lagoon-deep)]">
                 龙之谷
               </h3>
-              <p className="text-sm text-[var(--sea-ink-soft)]">奇幻冒险 · 25分钟</p>
+              <p className="text-sm text-[var(--sea-ink-soft)]">奇幻冒险 · 15分钟</p>
             </div>
           </Link>
         </div>

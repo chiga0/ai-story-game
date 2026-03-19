@@ -3,7 +3,7 @@
  * 管理用户 API Key 和其他设置
  */
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useState, useCallback, useEffect } from 'react'
 import {
   saveAPIKeys,
@@ -31,11 +31,16 @@ import {
   type SensitiveLevel,
 } from '#/lib/content/sensitive-words'
 
+type Tab = 'api' | 'content' | 'general' | 'about'
+
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => {
+    return {
+      tab: search.tab as Tab | undefined,
+    }
+  },
 })
-
-type Tab = 'api' | 'content' | 'general' | 'about'
 
 // 敏感词类别配置
 const CATEGORY_CONFIG: Record<SensitiveCategory, { name: string; description: string }> = {
@@ -47,7 +52,10 @@ const CATEGORY_CONFIG: Record<SensitiveCategory, { name: string; description: st
 }
 
 function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('api')
+  const navigate = useNavigate()
+  const search = useSearch({ from: '/settings' })
+  const initialTab = search.tab || 'api'
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [activeProvider, setActiveProvider] = useState<AIProvider>('system')
   const [keyStatuses, setKeyStatuses] = useState<APIKeyStatus[]>([])
   const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null)
@@ -70,6 +78,19 @@ function SettingsPage() {
     loadData()
     loadModerationSettings()
   }, [])
+
+  // 同步 URL 参数
+  useEffect(() => {
+    if (search.tab && search.tab !== activeTab) {
+      setActiveTab(search.tab)
+    }
+  }, [search.tab])
+
+  // 切换标签页时更新 URL
+  const handleTabChange = useCallback((tab: Tab) => {
+    setActiveTab(tab)
+    navigate({ search: { tab } })
+  }, [navigate])
 
   const loadData = async () => {
     const provider = await getActiveProvider()
@@ -242,7 +263,7 @@ function SettingsPage() {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as Tab)}
+              onClick={() => handleTabChange(tab.key as Tab)}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                 activeTab === tab.key
                   ? 'bg-[var(--lagoon-deep)] text-white'

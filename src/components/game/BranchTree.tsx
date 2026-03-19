@@ -200,7 +200,17 @@ function getSceneLabel(scene: Scene, sceneId: string): string {
     'ending-bad': '坏结局',
   }
 
-  return labels[sceneId] || sceneId.slice(0, 4)
+  // 如果有预定义标签则使用，否则截取前 4 个字符
+  if (labels[sceneId]) {
+    return labels[sceneId]
+  }
+  
+  // 尝试从场景标题获取简短标签
+  if (scene?.title) {
+    return scene.title.length > 4 ? scene.title.slice(0, 4) : scene.title
+  }
+  
+  return sceneId.slice(0, 4)
 }
 
 /**

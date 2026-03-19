@@ -147,3 +147,13 @@ export function formatSaveTime(timestamp: number): string {
     minute: '2-digit',
   })
 }
+
+/**
+ * 获取最近的存档
+ */
+export function getLatestSave(): SaveSlot | null {
+  const saves = getAllSaves()
+  if (saves.length === 0) return null
+  // 存档已按时间倒序排列，第一个即为最近的
+  return saves[0]
+}
