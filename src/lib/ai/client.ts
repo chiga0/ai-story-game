@@ -20,9 +20,10 @@ import {
   createModerationHook,
 } from '../content/content-moderator'
 import { filterSensitiveWords } from '../content/sensitive-words'
+import { generateAI } from '#/server/ai'
 
 // ============================================
-// AI Provider 配置 - 通过后端代理调用
+// AI Provider 配置 - 通过 Server Function 调用
 // ============================================
 
 // 重试配置
@@ -31,25 +32,15 @@ const MAX_RETRIES = 3
 const RETRY_DELAY = 1000 // 1 秒
 
 /**
- * 通过后端 API 调用 AI（避免 CORS 问题）
- * 所有 AI 调用都通过服务端代理
+ * 通过 Server Function 调用 AI（避免 CORS 问题）
+ * TanStack Start 的 Server Functions 会自动处理服务端调用
  */
 async function callAIServer(prompt: string, maxTokens: number = 2000): Promise<string> {
-  try {
-    const response = await fetch('/api/ai/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, maxTokens })
-    })
-    const data = await response.json()
-    if (!data.success) {
-      throw new Error(data.error || 'AI 调用失败')
-    }
-    return data.text
-  } catch (error) {
-    console.error('AI Server Error:', error)
-    throw error
+  const result = await generateAI({ data: { prompt, maxTokens } })
+  if (!result.success) {
+    throw new Error(result.error || 'AI 调用失败')
   }
+  return result.text
 }
 
 // ============================================
