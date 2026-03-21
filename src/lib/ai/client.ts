@@ -20,27 +20,42 @@ import {
   createModerationHook,
 } from '../content/content-moderator'
 import { filterSensitiveWords } from '../content/sensitive-words'
-import { generateAI } from '#/server/ai'
 
 // ============================================
-// AI Provider 配置 - 通过 Server Function 调用
+// AI Provider 配置 - 通过独立 API Worker 调用
 // ============================================
+
+// API Worker 地址
+const API_WORKER_URL = 'https://ai-story-api.arno-ga0.workers.dev'
 
 // 重试配置
-const DEFAULT_TIMEOUT = 30000 // 30 秒
-const MAX_RETRIES = 3
-const RETRY_DELAY = 1000 // 1 秒
+const DEFAULT_TIMEOUT = 90000 // 90 秒
+const MAX_RETRIES = 2
+const RETRY_DELAY = 3000 // 3 秒
 
 /**
- * 通过 Server Function 调用 AI（避免 CORS 问题）
- * TanStack Start 的 Server Functions 会自动处理服务端调用
+ * 通过 API Worker 调用 AI 文本生成
  */
 async function callAIServer(prompt: string, maxTokens: number = 2000): Promise<string> {
-  const result = await generateAI({ data: { prompt, maxTokens } })
+  const response = await fetch(`${API_WORKER_URL}/api/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt, maxTokens }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`AI 请求失败: ${response.status}`)
+  }
+
+  const result = await response.json()
+  
   if (!result.success) {
     throw new Error(result.error || 'AI 调用失败')
   }
-  return result.text
+  
+  return result.text || ''
 }
 
 // ============================================
@@ -318,7 +333,7 @@ ${speakerPersonality ? `角色性格：${speakerPersonality}` : ''}
         }
       },
       {
-        timeout: 20000,
+        timeout: 45000, // 45 秒
         onRetry: (attempt, error) => {
           console.warn(`动态对话生成重试 (${attempt}/${MAX_RETRIES}):`, error.message)
         },

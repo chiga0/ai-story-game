@@ -1,9 +1,12 @@
 /**
  * AI 图片生成模块
- * 使用阿里云通义万相 API 生成剧本封面图
+ * 使用独立 API Worker 调用通义万相 API
  */
 
 import type { ScriptOutline } from './script-generator'
+
+// API Worker 地址
+const API_WORKER_URL = 'https://ai-story-api.arno-ga0.workers.dev'
 
 // ============================================
 // 类型定义
@@ -76,23 +79,38 @@ export async function generateScriptCover(
 }
 
 /**
- * 调用图片生成 API
- * 通过 Server Function 调用，避免 CORS
+ * 调用图片生成 API（通过 API Worker）
  */
 async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
-  // 动态导入 server function
-  const { generateImageAI } = await import('#/server/ai')
-  
-  const result = await generateImageAI({
-    data: {
-      prompt: options.prompt,
-      size: options.size || '720*1280',
-      n: options.n || 1,
-      style: options.style || '<auto>',
+  try {
+    const response = await fetch(`${API_WORKER_URL}/api/image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: options.prompt,
+        size: options.size || '720*1280',
+        n: options.n || 1,
+        style: options.style || '<auto>',
+      }),
+    })
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API 请求失败: ${response.status}`,
+      }
     }
-  })
-  
-  return result
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '网络请求失败',
+    }
+  }
 }
 
 // ============================================

@@ -12,6 +12,12 @@ interface GenerateAIInput {
   maxTokens?: number
 }
 
+interface AICallResult {
+  success: boolean
+  text: string
+  error: string
+}
+
 /**
  * 获取 Cloudflare 环境变量
  */
@@ -31,7 +37,7 @@ async function callBailianAPI(
   apiKey: string,
   prompt: string,
   maxTokens: number
-): Promise<{ success: boolean; text?: string; error?: string }> {
+): Promise<AICallResult> {
   // 判断 API Key 类型
   const isCodingKey = apiKey.startsWith('sk-sp-')
   
@@ -39,32 +45,17 @@ async function callBailianAPI(
   let baseURL: string
   let model: string
   
-  // 获取环境变量配置的默认模型
   const envModel = getEnv().DEFAULT_MODEL
 
   if (isCodingKey) {
-    // Coding Plan Key: 使用 coding endpoint
-    // Coding Plan Key 只支持 qwen-turbo，不支持 qwen-plus
     baseURL = 'https://coding.dashscope.aliyuncs.com/v1'
-    // 优先使用环境变量配置，否则默认 qwen-turbo
     model = envModel || 'qwen-turbo'
-    console.log('[AI Server] Using Coding Plan endpoint with model:', model)
   } else {
-    // 普通 Key: 使用 OpenAI 兼容 endpoint
     baseURL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-    // 优先使用环境变量配置，否则默认 qwen-plus
     model = envModel || 'qwen-plus'
-    console.log('[AI Server] Using standard endpoint with model:', model)
   }
   
   const url = `${baseURL}/chat/completions`
-  
-  console.log('[AI Server] Request config:', {
-    keyType: isCodingKey ? 'coding' : 'standard',
-    baseURL,
-    model,
-    url
-  })
   
   try {
     const response = await fetch(url, {
@@ -81,20 +72,14 @@ async function callBailianAPI(
       }),
     })
     
-    console.log('[AI Server] Response status:', response.status)
-    
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('[AI Server] API error:', errorText.substring(0, 500))
-      
-      // 如果 Coding Plan Key 用标准模型失败，尝试 qwen-turbo
       if (isCodingKey && response.status === 405) {
-        console.log('[AI Server] Trying qwen-turbo model...')
-        return await tryModelFallback(apiKey, baseURL, prompt, maxTokens, ['qwen-turbo', 'qwen-max', 'glm-5-plus'])
+        return await tryModelFallback(apiKey, baseURL, prompt, maxTokens, ['qwen-turbo', 'qwen-max'])
       }
-      
       return {
         success: false,
+        text: '',
         error: `API 错误 (${response.status}): ${errorText.substring(0, 200)}`
       }
     }
@@ -102,12 +87,11 @@ async function callBailianAPI(
     const data = await response.json() as any
     const text = data.choices?.[0]?.message?.content || ''
     
-    console.log('[AI Server] Success! Text length:', text.length)
-    return { success: true, text }
+    return { success: true, text, error: '' }
   } catch (error) {
-    console.error('[AI Server] Fetch error:', error)
     return {
       success: false,
+      text: '',
       error: error instanceof Error ? error.message : '网络请求失败'
     }
   }
@@ -122,11 +106,9 @@ async function tryModelFallback(
   prompt: string,
   maxTokens: number,
   models: string[]
-): Promise<{ success: boolean; text?: string; error?: string }> {
+): Promise<AICallResult> {
   for (const model of models) {
     const url = `${baseURL}/chat/completions`
-    
-    console.log(`[AI Server] Trying model: ${model}`)
     
     try {
       const response = await fetch(url, {
@@ -143,179 +125,21 @@ async function tryModelFallback(
         }),
       })
       
-      console.log(`[AI Server] Model ${model} response:`, response.status)
-      
       if (response.ok) {
         const data = await response.json() as any
         const text = data.choices?.[0]?.message?.content || ''
-        console.log(`[AI Server] Success with model ${model}!`)
-        return { success: true, text }
+        return { success: true, text, error: '' }
       }
-    } catch (error) {
-      console.log(`[AI Server] Model ${model} failed:`, error)
+    } catch {
+      // 继续尝试下一个模型
     }
   }
   
   return {
     success: false,
+    text: '',
     error: 'Coding Plan Key 无法用于普通聊天。请使用普通的百炼 API Key（以 sk- 开头，不是 sk-sp-）'
   }
-}
-
-/**
- * 图片生成 Server Function
- * 调用通义万相 API 生成图片
- */
-export const generateImageAI = createServerFn({ method: 'POST' })
-  .handler(async (ctx) => {
-    const env = getEnv()
-    
-    console.log('[Image AI Server] ===== Request Start =====')
-    
-    const input = ctx.data as {
-      prompt: string
-      size?: string
-      n?: number
-      style?: string
-    }
-    
-    const { prompt, size = '720*1280', n = 1, style = '<auto>' } = input
-    
-    console.log('[Image AI Server] Prompt:', prompt?.substring(0, 100))
-    
-    if (!prompt) {
-      return { success: false, error: '缺少 prompt 参数' }
-    }
-    
-    const apiKey = env.BAILIAN_API_KEY || env.OPENAI_API_KEY
-    
-    if (!apiKey) {
-      return {
-        success: false,
-        error: '未配置 API Key',
-      }
-    }
-    
-    // 通义万相 API 端点
-    const url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis'
-    
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'X-DashScope-Async': 'enable', // 启用异步模式
-        },
-        body: JSON.stringify({
-          model: 'wanx2.1-t2i-turbo', // 使用最新的通义万相模型
-          input: {
-            prompt,
-          },
-          parameters: {
-            size,
-            n,
-            style,
-          },
-        }),
-      })
-      
-      console.log('[Image AI Server] Response status:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[Image AI Server] API error:', errorText.substring(0, 500))
-        return {
-          success: false,
-          error: `API 错误 (${response.status}): ${errorText.substring(0, 200)}`,
-        }
-      }
-      
-      const data = await response.json() as any
-      console.log('[Image AI Server] Response data:', JSON.stringify(data).substring(0, 300))
-      
-      // 检查是否是异步任务
-      if (data.output?.task_id) {
-        // 轮询获取结果
-        const taskId = data.output.task_id
-        console.log('[Image AI Server] Task ID:', taskId)
-        
-        const imageUrl = await pollImageTask(apiKey, taskId)
-        
-        if (imageUrl) {
-          return { success: true, imageUrl }
-        } else {
-          return { success: false, error: '图片生成超时' }
-        }
-      }
-      
-      // 同步返回结果
-      if (data.output?.results?.[0]?.url) {
-        return { success: true, imageUrl: data.output.results[0].url }
-      }
-      
-      if (data.output?.results?.[0]?.b64_image) {
-        return { 
-          success: true, 
-          base64Data: `data:image/png;base64,${data.output.results[0].b64_image}` 
-        }
-      }
-      
-      return {
-        success: false,
-        error: 'API 返回格式异常',
-      }
-    } catch (error) {
-      console.error('[Image AI Server] Fetch error:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '网络请求失败',
-      }
-    }
-  })
-
-/**
- * 轮询异步图片生成任务
- */
-async function pollImageTask(apiKey: string, taskId: string, maxAttempts = 30): Promise<string | null> {
-  const url = `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`
-  
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000)) // 等待 2 秒
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      })
-      
-      if (!response.ok) {
-        console.log('[Image AI Server] Poll error:', response.status)
-        continue
-      }
-      
-      const data = await response.json() as any
-      const status = data.output?.task_status
-      
-      console.log(`[Image AI Server] Poll ${i + 1}/${maxAttempts}, status:`, status)
-      
-      if (status === 'SUCCEEDED') {
-        const imageUrl = data.output?.results?.[0]?.url
-        if (imageUrl) {
-          return imageUrl
-        }
-      } else if (status === 'FAILED') {
-        console.error('[Image AI Server] Task failed:', data.output?.message)
-        return null
-      }
-    } catch (error) {
-      console.error('[Image AI Server] Poll error:', error)
-    }
-  }
-  
-  return null
 }
 
 /**
@@ -324,35 +148,21 @@ async function pollImageTask(apiKey: string, taskId: string, maxAttempts = 30): 
 export const generateAI = createServerFn({ method: 'POST' })
   .handler(async (ctx) => {
     const env = getEnv()
-    const envKeys = Object.keys(env)
-    
-    console.log('[AI Server] ===== Request Start =====')
-    console.log('[AI Server] Available env keys:', envKeys.join(', '))
     
     const input = ctx.data as GenerateAIInput
     const { prompt, maxTokens = 2000 } = input
     
-    console.log('[AI Server] Input prompt length:', prompt?.length)
-    
     if (!prompt) {
-      return { success: false, error: '缺少 prompt 参数' }
+      return { success: false, text: '', error: '缺少 prompt 参数' }
     }
     
     const apiKey = env.BAILIAN_API_KEY || env.OPENAI_API_KEY
-    const configuredBaseURL = env.BAILIAN_BASE_URL
-    
-    console.log('[AI Server] Config:', { 
-      hasApiKey: !!apiKey, 
-      apiKeyPrefix: apiKey?.substring(0, 10) + '...',
-      configuredBaseURL
-    })
     
     if (!apiKey) {
-      return {
-        success: true,
-        text: `（AI 功能需要配置 API Key）`
-      }
+      return { success: true, text: '（AI 功能需要配置 API Key）', error: '' }
     }
     
-    return await callBailianAPI(apiKey, prompt, maxTokens)
+    const result = await callBailianAPI(apiKey, prompt, maxTokens)
+    
+    return result
   })

@@ -63,7 +63,7 @@ async function callBailianAPI(
   }
 }
 
-export const APIRoute = createAPIFileRoute('/api/ai/generate')({
+export const APIRoute = createAPIFileRoute('/api/generate')({
   POST: async ({ request }) => {
     const env = getCloudflareEnv()
     

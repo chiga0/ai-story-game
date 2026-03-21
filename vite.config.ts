@@ -14,7 +14,11 @@ const config = defineConfig({
     devtools(),
     nitro({ 
       preset: 'cloudflare-module',
-      rollupConfig: { external: [/^@sentry\//] } 
+      rollupConfig: { external: [/^@sentry\//] },
+      scanDirs: ['server'],
+      routeRules: {
+        '/api/**': { cors: true }
+      }
     }),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),

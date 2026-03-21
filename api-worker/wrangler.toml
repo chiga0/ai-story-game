@@ -1,0 +1,12 @@
+name = "ai-story-api"
+main = "index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "34817bdd8eefd771f3c7ee9ef6f1a5f0"
+
+# 环境变量
+[vars]
+BAILIAN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# 不绑定路由，使用 workers.dev 域名
+workers_dev = true
