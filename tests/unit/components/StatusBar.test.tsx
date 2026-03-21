@@ -27,7 +27,7 @@ describe('StatusBar', () => {
   })
 
   describe('Relationships', () => {
-    it('should render relationships when provided', () => {
+    it('should render relationships with friendly names', () => {
       render(
         <StatusBar 
           attributes={{}} 
@@ -35,8 +35,10 @@ describe('StatusBar', () => {
         />
       )
       
-      expect(screen.getByText('butler')).toBeDefined()
+      // 修复后使用 friendlyNames 映射显示中文友好名称
+      expect(screen.getByText('管家亨利')).toBeDefined()
       expect(screen.getByText('+50')).toBeDefined()
+      expect(screen.getByText('女仆安娜')).toBeDefined()
       expect(screen.getByText('-20')).toBeDefined()
     })
 

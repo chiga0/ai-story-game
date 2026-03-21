@@ -307,6 +307,131 @@ a {
   }
 }
 
+/* P0-2: 选择反馈动画 */
+.choice-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.choice-btn:active {
+  transform: scale(0.97);
+}
+
+.choice-btn.selected {
+  animation: choice-select 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes choice-select {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 属性值变化动画 */
+.attr-value-change {
+  animation: attr-pulse 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes attr-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.attr-bar-change {
+  animation: bar-fill 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bar-fill {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.4);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* 关系值变化动画 */
+.relation-change {
+  animation: relation-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes relation-pop {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.9;
+  }
+}
+
+/* 数字跳动动画 */
+@keyframes number-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-3px);
+  }
+  75% {
+    transform: translateY(1px);
+  }
+}
+
+.number-animate {
+  animation: number-bounce 0.3s ease-out;
+}
+
+/* P0-3: 情感化反馈样式 */
+.emotional-feedback {
+  animation: emotional-fade 2s ease-out forwards;
+}
+
+@keyframes emotional-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* 首屏 CTA 按钮动画 */
+.cta-primary {
+  animation: cta-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cta-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(79, 184, 178, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(79, 184, 178, 0);
+  }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

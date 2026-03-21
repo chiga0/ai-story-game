@@ -12,38 +12,18 @@ import {
   type ModerationResult,
 } from '../content/content-moderator'
 import { loadAPIKeys, type UserAPIKeys } from '../user/api-keys'
+import { generateAI } from '#/server/ai'
 
 // ============================================
-// AI 服务调用（使用用户配置的 API Key）
+// AI 服务调用（通过 Server Function，避免 CORS）
 // ============================================
 
-async function callAIGenerate(prompt: string, maxTokens: number = 2000): Promise<string> {
-  // 通过后端代理调用 AI API，避免 CORS 问题
-  try {
-    const response = await fetch('/api/ai/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt,
-        maxTokens,
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `API 请求失败: ${response.status}`)
-    }
-
-    return data.text || ''
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error('AI 生成失败')
+async function callAIGenerate(prompt: string, maxTokens: number = 4000): Promise<string> {
+  const result = await generateAI({ data: { prompt, maxTokens } })
+  if (!result.success) {
+    throw new Error(result.error || 'AI 生成失败')
   }
+  return result.text || ''
 }
 
 // ============================================
@@ -69,7 +49,7 @@ export interface ScriptOutline {
 }
 
 export interface GenerationProgress {
-  step: 'outline' | 'characters' | 'scenes' | 'endings' | 'moderation' | 'validation' | 'complete' | 'error'
+  step: 'outline' | 'cover' | 'characters' | 'scenes' | 'endings' | 'moderation' | 'validation' | 'complete' | 'error'
   message: string
   progress: number // 0-100
   data?: unknown
@@ -130,18 +110,18 @@ export const DIFFICULTY_CONFIG = {
 export const DURATION_CONFIG = {
   short: {
     duration: 15,
-    sceneCount: { min: 5, max: 8 },
-    characterCount: { min: 2, max: 4 },
+    sceneCount: { min: 3, max: 5 },
+    characterCount: { min: 2, max: 3 },
   },
   medium: {
     duration: 30,
-    sceneCount: { min: 10, max: 15 },
-    characterCount: { min: 3, max: 6 },
+    sceneCount: { min: 5, max: 8 },
+    characterCount: { min: 3, max: 4 },
   },
   long: {
     duration: 60,
-    sceneCount: { min: 20, max: 30 },
-    characterCount: { min: 5, max: 10 },
+    sceneCount: { min: 8, max: 12 },
+    characterCount: { min: 4, max: 6 },
   },
 } as const
 
@@ -197,32 +177,65 @@ async function generateOutline(
     .replace('{customElements}', customElementsStr)
     .replace('{defaultElements}', themeConfig.defaultElements.join('、'))
 
-  try {
-    const text = await callAIGenerate(prompt, 2000)
+  // 最多尝试3次（初次生成 + 2次修正）
+  const maxAttempts = 3
+  let lastModerationResult: ModerationResult | null = null
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('AI 响应格式错误：未找到 JSON')
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // 如果是修正尝试，添加审核反馈
+      let currentPrompt = prompt
+      if (lastModerationResult && attempt > 1) {
+        const feedback = lastModerationResult.issues.map(i => `- ${i.message}`).join('\n')
+        currentPrompt = `${prompt}\n\n**注意：上次生成的内容未通过审核，请根据以下反馈修正：**\n${feedback}\n\n请避免上述问题，重新生成内容。`
+        
+        onProgress?.({
+          step: 'moderation',
+          message: `正在根据审核意见修正大纲（第${attempt}次尝试）...`,
+          progress: 10,
+          moderationResult: lastModerationResult,
+        })
+      }
+
+      const text = await callAIGenerate(currentPrompt, 2000)
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error('AI 响应格式错误：未找到 JSON')
+      }
+
+      const outline = JSON.parse(jsonMatch[0]) as ScriptOutline
+
+      const moderationResult = await moderateText(`${outline.title} ${outline.description} ${outline.mainPlot}`)
+      
+      if (!moderationResult.approved) {
+        lastModerationResult = moderationResult
+        
+        if (attempt < maxAttempts) {
+          console.log(`大纲审核未通过，准备第${attempt + 1}次尝试修正...`)
+          continue
+        }
+        
+        // 最后一次尝试仍然失败
+        onProgress?.({
+          step: 'error',
+          message: `大纲包含敏感内容：${moderationResult.issues.map(i => i.message).join('、')}`,
+          progress: 0,
+          moderationResult,
+        })
+        throw new Error(`大纲审核未通过，已尝试${maxAttempts}次修正`)
+      }
+
+      return outline
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error
+      }
+      // 继续下一次尝试
     }
-
-    const outline = JSON.parse(jsonMatch[0]) as ScriptOutline
-
-    const moderationResult = await moderateText(`${outline.title} ${outline.description} ${outline.mainPlot}`)
-    
-    if (!moderationResult.approved) {
-      onProgress?.({
-        step: 'error',
-        message: `大纲包含敏感内容：${moderationResult.issues.map(i => i.message).join('、')}`,
-        progress: 0,
-        moderationResult,
-      })
-      throw new Error(`大纲审核未通过`)
-    }
-
-    return outline
-  } catch (error) {
-    throw error
   }
+
+  throw new Error('大纲生成失败')
 }
 
 async function generateCharacters(
@@ -234,30 +247,78 @@ async function generateCharacters(
 
   const prompt = CHARACTER_GENERATION_PROMPT
     .replace('{title}', outline.title)
+    .replace('{description}', outline.description)
+    .replace('{setting}', outline.setting)
     .replace('{mainPlot}', outline.mainPlot)
     .replace('{characterCount}', String(durationConfig.characterCount.max))
 
-  try {
-    const text = await callAIGenerate(prompt, 3000)
+  // 最多尝试3次
+  const maxAttempts = 3
+  let lastModerationIssues: Array<{ charName: string; issues: ModerationResult }> = []
 
-    const jsonMatch = text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) {
-      throw new Error('AI 响应格式错误：未找到角色数组')
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      let currentPrompt = prompt
+      if (lastModerationIssues.length > 0 && attempt > 1) {
+        const feedback = lastModerationIssues
+          .map(({ charName, issues }) => {
+            const issueList = issues.issues.map(i => `  - ${i.message}`).join('\n')
+            return `角色「${charName}」：\n${issueList}`
+          })
+          .join('\n\n')
+        
+        currentPrompt = `${prompt}\n\n**注意：上次生成的角色未通过审核，请根据以下反馈修正：**\n${feedback}\n\n请避免上述问题，重新生成角色。`
+        
+        onProgress?.({
+          step: 'moderation',
+          message: `正在根据审核意见修正角色（第${attempt}次尝试）...`,
+          progress: 30,
+        })
+      }
 
-    const characters = JSON.parse(jsonMatch[0]) as Character[]
+      const text = await callAIGenerate(currentPrompt, 3000)
 
-    for (const char of characters) {
-      const moderationResult = await moderateCharacter(char)
-      if (!moderationResult.approved) {
-        console.warn(`角色 "${char.name}" 可能包含敏感内容`)
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (!jsonMatch) {
+        throw new Error('AI 响应格式错误：未找到角色数组')
+      }
+
+      const characters = JSON.parse(jsonMatch[0]) as Character[]
+
+      // 审核所有角色
+      const moderationResults: Array<{ charName: string; issues: ModerationResult }> = []
+      let hasDisapproved = false
+
+      for (const char of characters) {
+        const moderationResult = await moderateCharacter(char)
+        if (!moderationResult.approved) {
+          hasDisapproved = true
+          moderationResults.push({ charName: char.name, issues: moderationResult })
+          console.warn(`角色 "${char.name}" 包含敏感内容`)
+        }
+      }
+
+      if (hasDisapproved) {
+        lastModerationIssues = moderationResults
+        
+        if (attempt < maxAttempts) {
+          console.log(`角色审核未通过，准备第${attempt + 1}次尝试修正...`)
+          continue
+        }
+        
+        // 最后一次尝试仍有问题，返回角色但记录警告
+        console.warn(`角色审核存在警告，已尝试${maxAttempts}次修正`)
+      }
+
+      return characters
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error
       }
     }
-
-    return characters
-  } catch (error) {
-    throw error
   }
+
+  throw new Error('角色生成失败')
 }
 
 async function generateScenes(
@@ -271,32 +332,80 @@ async function generateScenes(
 
   const prompt = SCENE_GENERATION_PROMPT
     .replace('{title}', outline.title)
+    .replace('{description}', outline.description)
+    .replace('{setting}', outline.setting)
     .replace('{mainPlot}', outline.mainPlot)
     .replace('{keyEvents}', outline.keyEvents.join('\n'))
     .replace('{characters}', characterNames)
     .replace('{sceneCount}', String(durationConfig.sceneCount.max))
 
-  try {
-    const text = await callAIGenerate(prompt, 8000)
+  // 最多尝试3次
+  const maxAttempts = 3
+  let lastModerationIssues: Array<{ sceneId: string; issues: ModerationResult }> = []
 
-    const jsonMatch = text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) {
-      throw new Error('AI 响应格式错误：未找到场景数组')
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      let currentPrompt = prompt
+      if (lastModerationIssues.length > 0 && attempt > 1) {
+        const feedback = lastModerationIssues
+          .map(({ sceneId, issues }) => {
+            const issueList = issues.issues.map(i => `  - ${i.message}`).join('\n')
+            return `场景「${sceneId}」：\n${issueList}`
+          })
+          .join('\n\n')
+        
+        currentPrompt = `${prompt}\n\n**注意：上次生成的场景未通过审核，请根据以下反馈修正：**\n${feedback}\n\n请避免上述问题，重新生成场景。`
+        
+        onProgress?.({
+          step: 'moderation',
+          message: `正在根据审核意见修正场景（第${attempt}次尝试）...`,
+          progress: 50,
+        })
+      }
 
-    const scenes = JSON.parse(jsonMatch[0]) as Scene[]
+      const text = await callAIGenerate(currentPrompt, 6000)
 
-    for (const scene of scenes) {
-      const moderationResult = await moderateScene(scene)
-      if (!moderationResult.approved) {
-        console.warn(`场景可能包含敏感内容`)
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (!jsonMatch) {
+        throw new Error('AI 响应格式错误：未找到场景数组')
+      }
+
+      const scenes = JSON.parse(jsonMatch[0]) as Scene[]
+
+      // 审核所有场景
+      const moderationResults: Array<{ sceneId: string; issues: ModerationResult }> = []
+      let hasDisapproved = false
+
+      for (const scene of scenes) {
+        const moderationResult = await moderateScene(scene)
+        if (!moderationResult.approved) {
+          hasDisapproved = true
+          moderationResults.push({ sceneId: scene.id, issues: moderationResult })
+          console.warn(`场景包含敏感内容`)
+        }
+      }
+
+      if (hasDisapproved) {
+        lastModerationIssues = moderationResults
+        
+        if (attempt < maxAttempts) {
+          console.log(`场景审核未通过，准备第${attempt + 1}次尝试修正...`)
+          continue
+        }
+        
+        // 最后一次尝试仍有问题
+        console.warn(`场景审核存在警告，已尝试${maxAttempts}次修正`)
+      }
+
+      return scenes
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error
       }
     }
-
-    return scenes
-  } catch (error) {
-    throw error
   }
+
+  throw new Error('场景生成失败')
 }
 
 async function generateEndings(
@@ -338,15 +447,47 @@ export async function generateScript(
     })
     const outline = await generateOutline(options, onProgress)
 
-    // 步骤 2：生成角色
+    // 步骤 2：生成封面图（在大纲生成后，与其他步骤并行）
+    let coverImage: string | undefined
+    const coverPromise = (async () => {
+      try {
+        onProgress?.({
+          step: 'cover',
+          message: '正在生成封面图...',
+          progress: 20,
+        })
+        
+        // 动态导入图片生成模块
+        const { generateScriptCover } = await import('./image-generator')
+        const coverResult = await generateScriptCover(outline, options.theme)
+        
+        if (coverResult.success && coverResult.imageUrl) {
+          coverImage = coverResult.imageUrl
+          console.log('[Script Generator] Cover image generated:', coverImage)
+        } else if (coverResult.success && coverResult.base64Data) {
+          coverImage = coverResult.base64Data
+          console.log('[Script Generator] Cover image generated (base64)')
+        } else {
+          console.warn('[Script Generator] Cover generation failed:', coverResult.error)
+        }
+      } catch (error) {
+        console.warn('[Script Generator] Cover generation error:', error)
+        // 封面生成失败不影响剧本生成
+      }
+    })()
+
+    // 步骤 3：生成角色
     onProgress?.({
       step: 'characters',
       message: '正在生成角色...',
       progress: 30,
     })
-    const characters = await generateCharacters(outline, options, onProgress)
+    const charactersPromise = generateCharacters(outline, options, onProgress)
 
-    // 步骤 3：生成场景
+    // 等待封面和角色都完成
+    const [, characters] = await Promise.all([coverPromise, charactersPromise])
+
+    // 步骤 4：生成场景
     onProgress?.({
       step: 'scenes',
       message: '正在生成场景...',
@@ -354,7 +495,7 @@ export async function generateScript(
     })
     const scenes = await generateScenes(outline, characters, options, onProgress)
 
-    // 步骤 4：生成结局
+    // 步骤 5：生成结局
     onProgress?.({
       step: 'endings',
       message: '正在生成结局...',
@@ -362,7 +503,7 @@ export async function generateScript(
     })
     const endings = await generateEndings(scenes, options, onProgress)
 
-    // 步骤 5：组装剧本
+    // 步骤 6：组装剧本
     onProgress?.({
       step: 'validation',
       message: '正在验证剧本...',
@@ -374,6 +515,7 @@ export async function generateScript(
       title: outline.title,
       description: outline.description,
       genre: options.theme,
+      cover: coverImage, // 添加封面图
       difficulty: options.difficulty,
       estimatedDuration: DURATION_CONFIG[options.duration].duration,
       characters: characters.reduce((acc, char) => {

@@ -14,7 +14,7 @@
   "vars": {
     "ENVIRONMENT": "production",
     "APP_URL": "https://game.chigao.site",
-    "BAILIAN_BASE_URL": "https://coding.dashscope.aliyuncs.com/v1"
+    "BAILIAN_BASE_URL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
   },
   
   // 自定义域名路由

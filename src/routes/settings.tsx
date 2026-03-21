@@ -263,6 +263,7 @@ function SettingsPage() {
           ].map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => handleTabChange(tab.key as Tab)}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                 activeTab === tab.key

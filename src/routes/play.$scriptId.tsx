@@ -26,7 +26,7 @@ import { getSave } from '#/lib/game/save-manager'
 import { sampleScripts } from '#/data/scripts'
 import { useAudio } from '#/hooks/useAudio'
 import { SoundEffect, BackgroundMusic, getRecommendedMusic } from '#/lib/audio/sounds'
-import type { ShareCardData } from '#/lib/sharing/share-card'
+import type { ShareCardData, KeyChoice } from '#/lib/sharing/share-card'
 import {
   generateDynamicDialogue,
   analyzePlayerStyle,
@@ -61,8 +61,36 @@ function PlayPage() {
     traits: [],
   })
 
+  // 场景切换状态
+  const [sceneTransition, setSceneTransition] = useState(false)
+
+  // 新手引导
+  const [showGuide, setShowGuide] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !localStorage.getItem('ai-story-game-guide-seen')
+  })
+
+  const dismissGuide = () => {
+    setShowGuide(false)
+    localStorage.setItem('ai-story-game-guide-seen', 'true')
+  }
+
   // 游玩时长实时更新
   const [playTimeMinutes, setPlayTimeMinutes] = useState(0)
+  
+  // 获取当前标签页的唯一 ID（用于多标签页状态隔离）
+  const tabId = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    let id = sessionStorage.getItem('ai-story-game-tab-id')
+    if (!id) {
+      id = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      sessionStorage.setItem('ai-story-game-tab-id', id)
+    }
+    return id
+  }, [])
+
+  // 持久化的开始时间 key（包含标签页 ID 以隔离多标签页状态）
+  const startTimeKey = `ai-story-game-start-time-${scriptId}-${tabId}`
 
   // 音频控制
   const { playSfx, playMusic, stopMusic, isReady: audioReady } = useAudio()
@@ -70,16 +98,49 @@ function PlayPage() {
   // NPC 记忆管理器（单例）
   const npcMemoryManager = useMemo(() => getNPCMemoryManager(), [])
 
-  // 游玩时长实时更新计时器
+  // 游玩时长实时更新计时器（使用 localStorage 持久化）
   useEffect(() => {
     if (!gameState) return
 
+    // 获取或初始化开始时间
+    const getStartTime = (): number => {
+      // 1. 优先使用 localStorage 中持久化的开始时间
+      const storedStartTime = localStorage.getItem(startTimeKey)
+      if (storedStartTime) {
+        const time = parseInt(storedStartTime, 10)
+        // 验证时间有效性：必须是合理的数字，且不能是未来时间
+        const now = Date.now()
+        const oneDayMs = 24 * 60 * 60 * 1000 // 24小时
+        if (!isNaN(time) && time > 0 && time <= now && (now - time) < oneDayMs) {
+          return time
+        }
+        // 如果时间无效，清除旧数据
+        localStorage.removeItem(startTimeKey)
+      }
+      
+      // 2. 使用 gameState 中的开始时间（同样验证有效性）
+      if (gameState.startTime) {
+        const now = Date.now()
+        const oneDayMs = 24 * 60 * 60 * 1000
+        if (gameState.startTime > 0 && gameState.startTime <= now && (now - gameState.startTime) < oneDayMs) {
+          // 持久化到 localStorage
+          localStorage.setItem(startTimeKey, gameState.startTime.toString())
+          return gameState.startTime
+        }
+      }
+      
+      // 3. 如果都没有或数据无效，使用当前时间
+      const now = Date.now()
+      localStorage.setItem(startTimeKey, now.toString())
+      return now
+    }
+
+    const startTime = getStartTime()
+
     // 初始化游玩时长
     const updatePlayTime = () => {
-      if (gameState?.startTime) {
-        const minutes = Math.floor((Date.now() - gameState.startTime) / 60000)
-        setPlayTimeMinutes(minutes)
-      }
+      const minutes = Math.floor((Date.now() - startTime) / 60000)
+      setPlayTimeMinutes(minutes)
     }
 
     // 立即更新一次
@@ -89,10 +150,25 @@ function PlayPage() {
     const interval = setInterval(updatePlayTime, 60000)
 
     return () => clearInterval(interval)
-  }, [gameState?.startTime])
+  }, [gameState, startTimeKey])
 
   // 获取当前剧本的场景数据
-  const currentScript = sampleScripts.find((s) => s.id === scriptId)
+  const currentScript = useMemo(() => {
+    // 先从 sampleScripts 查找
+    const sampleScript = sampleScripts.find((s) => s.id === scriptId)
+    if (sampleScript) return sampleScript
+
+    // 再从 localStorage 的自定义剧本中查找
+    if (typeof window !== 'undefined') {
+      try {
+        const customScripts = JSON.parse(localStorage.getItem('custom-scripts') || '[]')
+        return customScripts.find((s: any) => s.id === scriptId)
+      } catch {
+        return undefined
+      }
+    }
+    return undefined
+  }, [scriptId])
 
   // 初始化游戏
   useEffect(() => {
@@ -101,8 +177,19 @@ function PlayPage() {
         setLoading(true)
         setError(null)
 
-        // 查找剧本
-        const script = sampleScripts.find((s) => s.id === scriptId)
+        // 查找剧本：先从 sampleScripts，再从 localStorage
+        let script = sampleScripts.find((s) => s.id === scriptId)
+
+        // 如果 sampleScripts 中没有，尝试从 localStorage 加载自定义剧本
+        if (!script) {
+          try {
+            const customScripts = JSON.parse(localStorage.getItem('custom-scripts') || '[]')
+            script = customScripts.find((s: any) => s.id === scriptId)
+          } catch (e) {
+            console.error('Failed to load custom scripts:', e)
+          }
+        }
+
         if (!script) {
           setError('剧本不存在')
           setLoading(false)
@@ -129,6 +216,8 @@ function PlayPage() {
               title: script.title,
               scenes: script.scenes,
               endings: script.endings,
+              characters: script.characters,
+              initialState: script.initialState,
             } as any)
             state = save.state
           } else {
@@ -137,6 +226,8 @@ function PlayPage() {
               title: script.title,
               scenes: script.scenes,
               endings: script.endings,
+              characters: script.characters,
+              initialState: script.initialState,
             } as any)
           }
         } else {
@@ -145,6 +236,8 @@ function PlayPage() {
             title: script.title,
             scenes: script.scenes,
             endings: script.endings,
+            characters: script.characters,
+            initialState: script.initialState,
           } as any)
         }
 
@@ -183,6 +276,9 @@ function PlayPage() {
     // 如果是场景切换（不是初始化）
     if (prevSceneId && prevSceneId !== currentScene.id) {
       playSfx(SoundEffect.SCENE_TRANSITION)
+      setSceneTransition(true)
+      // 短暂的过渡动画后重置
+      setTimeout(() => setSceneTransition(false), 500)
     }
 
     // 新对话出现
@@ -304,6 +400,9 @@ function PlayPage() {
         playSfx(SoundEffect.ACHIEVEMENT)
         setPendingAchievements(newAchievements)
       }
+      
+      // 清除持久化的开始时间
+      localStorage.removeItem(startTimeKey)
     } else {
       setCurrentScene(result.scene || null)
       setChoices(engine.getChoices())
@@ -315,7 +414,30 @@ function PlayPage() {
     }
 
     setGameState(engine.getState())
-  }, [engine, gameState, scriptId, playSfx, playMusic])
+  }, [engine, gameState, scriptId, playSfx, playMusic, startTimeKey])
+
+  // 处理分支树节点点击（回溯功能）
+  const handleBranchNodeClick = useCallback((sceneId: string) => {
+    if (!engine || !gameState) return
+    
+    // 调用引擎的回溯方法
+    const success = engine.backtrackToScene(sceneId)
+    
+    if (success) {
+      // 更新游戏状态
+      setGameState(engine.getState())
+      setCurrentScene(engine.getCurrentScene())
+      setChoices(engine.getChoices())
+      setEnhancedText(null)
+      
+      // 播放场景切换音效
+      playSfx(SoundEffect.SCENE_TRANSITION)
+      
+      console.log(`成功回溯到场景: ${sceneId}`)
+    } else {
+      console.warn(`无法回溯到场景: ${sceneId}`)
+    }
+  }, [engine, gameState, playSfx])
 
   // 获取角色头像
   const getAvatar = (speakerId?: string): string | undefined => {
@@ -346,6 +468,40 @@ function PlayPage() {
 
   // 获取已访问的场景 ID 列表
   const visitedSceneIds = gameState?.history.map((h) => h.sceneId) || []
+
+  // 提取关键选择路径（用于分享卡片）
+  const getKeyChoices = useCallback((): KeyChoice[] => {
+    if (!gameState?.history) return []
+    
+    return gameState.history
+      .filter(h => h.choice) // 只保留有选择的记录
+      .slice(-5) // 取最近5个选择
+      .map(h => ({
+        text: h.choice || '',
+        impact: undefined // 可以根据效果添加影响描述
+      }))
+      .filter(c => c.text.length > 0)
+  }, [gameState?.history])
+
+  // 判断结局类型标签
+  const getEndingTag = useCallback((endingId: string | null): string | undefined => {
+    if (!endingId) return undefined
+    
+    const lowerId = endingId.toLowerCase()
+    if (lowerId.includes('good') || lowerId.includes('happy') || lowerId.includes('best')) {
+      return '✨ 完美结局'
+    }
+    if (lowerId.includes('bad') || lowerId.includes('tragic') || lowerId.includes('worst')) {
+      return '💔 悲剧结局'
+    }
+    if (lowerId.includes('secret') || lowerId.includes('hidden')) {
+      return '🔮 隐藏结局'
+    }
+    if (lowerId.includes('neutral') || lowerId.includes('normal')) {
+      return '🌙 普通结局'
+    }
+    return '🎭 特殊结局'
+  }, [])
 
   if (loading) {
     return (
@@ -389,6 +545,8 @@ function PlayPage() {
             startSceneId="start"
             maxDepth={4}
             collapsible
+            onNodeClick={handleBranchNodeClick}
+            enableBacktrack={true}
           />
         </div>
       )}
@@ -427,6 +585,11 @@ function PlayPage() {
           <StatusBar
             attributes={gameState.attributes}
             relationships={gameState.relationships}
+            characterNames={currentScript?.characters ? 
+              Object.fromEntries(
+                Object.entries(currentScript.characters).map(([id, char]) => [id, char.name])
+              ) : undefined
+            }
           />
         )}
 
@@ -448,6 +611,8 @@ function PlayPage() {
                     startSceneId="start"
                     maxDepth={3}
                     collapsible={false}
+                    onNodeClick={handleBranchNodeClick}
+                    enableBacktrack={true}
                   />
                 )}
               </div>
@@ -457,6 +622,29 @@ function PlayPage() {
 
         {/* 游戏主区域 */}
         <div className="flex-1 flex flex-col justify-end p-4 max-w-4xl mx-auto w-full">
+          {/* 新手引导 */}
+          {showGuide && (
+            <div className="mb-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-2">🎮 游戏指南</h3>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li>• 点击选项推进剧情发展</li>
+                    <li>• 左侧分支树显示你的探索进度</li>
+                    <li>• 收集线索解锁不同结局</li>
+                    <li>• 随时可以保存游戏进度</li>
+                  </ul>
+                </div>
+                <button
+                  onClick={dismissGuide}
+                  className="text-gray-400 hover:text-gray-600 ml-4"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* 当前场景提示 */}
           {gameState && (
             <div className="mb-4 flex justify-between items-center">
@@ -479,7 +667,9 @@ function PlayPage() {
               speaker={getSpeakerName(currentScene.speaker)}
               text={enhancedText || currentScene.text}
               avatar={getAvatar(currentScene.speaker)}
+              background={currentScene.background}
               onTypingComplete={() => setIsTyping(false)}
+              sceneTransition={sceneTransition}
             />
           )}
 
@@ -516,6 +706,11 @@ function PlayPage() {
                       achievements: pendingAchievements.map((a) => a.title),
                       genre: currentScript?.genre,
                       scriptId: scriptId,
+                      keyChoices: getKeyChoices(),
+                      endingTag: getEndingTag(currentEndingId),
+                      relationshipSummary: gameState.relationships && Object.keys(gameState.relationships).length > 0
+                        ? `与 ${Object.keys(gameState.relationships).length} 位角色建立了关系`
+                        : undefined,
                     }}
                   />
                 </div>

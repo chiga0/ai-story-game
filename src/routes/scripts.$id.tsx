@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { sampleScripts } from '#/data/scripts'
+import type { Script } from '#/types'
+import { getDefaultCoverEmoji, getDefaultCoverGradient } from '#/lib/ai/image-generator'
 
 export const Route = createFileRoute('/scripts/$id')({
   component: ScriptDetailPage,
@@ -9,10 +11,8 @@ export const Route = createFileRoute('/scripts/$id')({
 
 const difficultyMap: Record<number, '简单' | '中等' | '困难'> = {
   1: '简单',
-  2: '简单',
-  3: '中等',
-  4: '困难',
-  5: '困难',
+  2: '中等',
+  3: '困难',
 }
 
 const genreLabels: Record<string, string> = {
@@ -24,10 +24,39 @@ const genreLabels: Record<string, string> = {
 function ScriptDetailPage() {
   const { id } = Route.useParams()
 
-  // 查找剧本
+  // 加载自定义剧本
+  const [customScripts, setCustomScripts] = useState<Script[]>([])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('custom-scripts')
+      if (saved) {
+        const parsed = JSON.parse(saved) as Script[]
+        setCustomScripts(Array.isArray(parsed) ? parsed : [])
+      }
+    } catch (error) {
+      console.error('Failed to load custom scripts:', error)
+      setCustomScripts([])
+    }
+  }, [])
+
+  // 查找剧本（合并示例剧本和自定义剧本）
   const script = useMemo(() => {
-    return sampleScripts.find((s) => s.id === id)
-  }, [id])
+    const allScripts = [...sampleScripts, ...customScripts]
+    return allScripts.find((s) => s.id === id)
+  }, [id, customScripts])
+
+  // 获取角色列表（必须在条件返回之前调用，确保 hooks 顺序一致）
+  const characters = useMemo(() => {
+    return script ? Object.values(script.characters) : []
+  }, [script])
+
+  // 获取前 2 个场景用于预览（必须在条件返回之前调用，确保 hooks 顺序一致）
+  const previewScenes = useMemo(() => {
+    if (!script) return []
+    const scenes = Object.values(script.scenes)
+    return scenes.slice(0, 2)
+  }, [script])
 
   if (!script) {
     return (
@@ -45,15 +74,6 @@ function ScriptDetailPage() {
     )
   }
 
-  // 获取角色列表
-  const characters = Object.values(script.characters)
-
-  // 获取前 2 个场景用于预览
-  const previewScenes = useMemo(() => {
-    const scenes = Object.values(script.scenes)
-    return scenes.slice(0, 2)
-  }, [script.scenes])
-
   return (
     <div className="page-wrap py-8">
       <Link to="/scripts" className="nav-link inline-flex items-center gap-1 mb-6">
@@ -62,12 +82,24 @@ function ScriptDetailPage() {
 
       <div className="island-shell rounded-2xl overflow-hidden">
         {/* 封面区域 */}
-        <div className="aspect-video bg-gradient-to-br from-[var(--sea-ink-light)] to-[var(--sea-ink)] flex items-center justify-center">
-          <span className="text-6xl">
-            {script.genre === 'mystery' && '🏰'}
-            {script.genre === 'fantasy' && '🐉'}
-            {script.genre === 'scifi' && '🚀'}
-          </span>
+        <div className={`aspect-video relative overflow-hidden ${script.cover ? '' : `bg-gradient-to-br ${getDefaultCoverGradient(script.genre)} flex items-center justify-center`}`}>
+          {script.cover ? (
+            <img 
+              src={script.cover} 
+              alt={script.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // 图片加载失败时显示默认封面
+                const target = e.target as HTMLImageElement
+                target.style.display = 'none'
+                target.parentElement!.innerHTML = `<div class="w-full h-full bg-gradient-to-br ${getDefaultCoverGradient(script.genre)} flex items-center justify-center"><span class="text-6xl">${getDefaultCoverEmoji(script.genre)}</span></div>`
+              }}
+            />
+          ) : (
+            <span className="text-6xl">
+              {getDefaultCoverEmoji(script.genre)}
+            </span>
+          )}
         </div>
 
         {/* 信息区域 */}
@@ -83,6 +115,14 @@ function ScriptDetailPage() {
             <span className="px-3 py-1 rounded-full text-sm bg-[var(--lagoon)] text-white">
               {difficultyMap[script.difficulty || 2] || '中等'}
             </span>
+          </div>
+
+          {/* 难度说明 */}
+          <div className="mb-4 p-3 rounded-lg bg-[var(--bg-soft)] text-sm text-[var(--sea-ink-soft)]">
+            <strong>难度说明：</strong>
+            {script.difficulty === 1 && ' 更多线索提示，分支较少，适合新手体验'}
+            {script.difficulty === 2 && ' 平衡的线索提示，中等分支数量，推荐大多数玩家'}
+            {script.difficulty === 3 && ' 线索隐藏更深，分支更多，适合喜欢挑战的玩家'}
           </div>
 
           {/* 标题和描述 */}

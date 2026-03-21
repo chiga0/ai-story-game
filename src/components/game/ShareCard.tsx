@@ -173,17 +173,25 @@ export function ShareCard({ data, onClose }: ShareCardProps) {
                   alt="分享卡片"
                   className="w-full rounded-lg shadow-lg"
                 />
-                {/* 数据摘要 */}
-                <div className="absolute bottom-4 left-4 right-4 bg-black/50 rounded-lg p-3 text-white text-sm">
-                  <div className="flex justify-between">
-                    <span>游戏时长: {data.playTime} 分钟</span>
-                    <span>选择次数: {data.choices} 次</span>
-                  </div>
-                  {data.achievements.length > 0 && (
-                    <div className="mt-1">
-                      成就: {data.achievements.slice(0, 3).join('、')}
+              </div>
+            )}
+
+            {/* 关键选择路径 */}
+            {state === 'ready' && data.keyChoices && data.keyChoices.length > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <span>📍</span>
+                  <span>我的抉择之路</span>
+                </h4>
+                <div className="space-y-2">
+                  {data.keyChoices.slice(0, 5).map((choice, index) => (
+                    <div key={index} className="flex items-start gap-2 text-sm">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-medium">
+                        {index + 1}
+                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{choice.text}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}

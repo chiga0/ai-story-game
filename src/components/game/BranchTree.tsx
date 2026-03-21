@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react'
-import type { Scene, Choice } from '#/types'
+import type { Scene } from '#/types'
 
 // ============================================
 // 类型定义
@@ -32,8 +32,10 @@ interface BranchTreeProps {
   maxDepth?: number
   /** 是否可折叠 */
   collapsible?: boolean
-  /** 点击节点回调 */
+  /** 点击节点回调（用于回溯） */
   onNodeClick?: (sceneId: string) => void
+  /** 是否启用回溯功能 */
+  enableBacktrack?: boolean
 }
 
 // ============================================
@@ -205,12 +207,18 @@ function getSceneLabel(scene: Scene, sceneId: string): string {
     return labels[sceneId]
   }
   
-  // 尝试从场景标题获取简短标签
-  if (scene?.title) {
-    return scene.title.length > 4 ? scene.title.slice(0, 4) : scene.title
-  }
+  // 尝试从场景 ID 生成可读标签
+  // 将 kebab-case 或 camelCase 转换为可读文本
+  const readableLabel = sceneId
+    .replace(/-/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .slice(0, 2) // 最多取前两个词
+    .join(' ')
   
-  return sceneId.slice(0, 4)
+  // 如果标签太长，截断
+  return readableLabel.length > 6 ? readableLabel.slice(0, 6) : readableLabel
 }
 
 /**
@@ -305,8 +313,10 @@ export function BranchTree({
   maxDepth = 5,
   collapsible = true,
   onNodeClick,
+  enableBacktrack = true,
 }: BranchTreeProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null)
 
   const visitedSet = useMemo(() => new Set(visitedSceneIds), [visitedSceneIds])
 
@@ -401,64 +411,92 @@ export function BranchTree({
           ))}
 
           {/* 节点 */}
-          {layout.nodes.map((node) => (
-            <g
-              key={node.id}
-              className="cursor-pointer"
-              onClick={() => onNodeClick?.(node.id)}
-            >
-              {/* 节点背景 */}
-              <rect
-                x={node.x}
-                y={node.y}
-                width={node.width}
-                height={node.height}
-                rx="6"
-                fill={
-                  node.isCurrent
-                    ? '#fef3c7'
-                    : node.isVisited
-                    ? '#dcfce7'
-                    : '#f3f4f6'
-                }
-                stroke={
-                  node.isCurrent
-                    ? '#f59e0b'
-                    : node.isVisited
-                    ? '#22c55e'
-                    : '#d1d5db'
-                }
-                strokeWidth={node.isCurrent ? 2 : 1}
-              />
-
-              {/* 节点文本 */}
-              <text
-                x={node.x + node.width / 2}
-                y={node.y + node.height / 2 + 4}
-                textAnchor="middle"
-                fontSize="11"
-                fill={
-                  node.isCurrent
-                    ? '#92400e'
-                    : node.isVisited
-                    ? '#166534'
-                    : '#6b7280'
-                }
+          {layout.nodes.map((node) => {
+            // 判断节点是否可点击（已访问且非当前场景）
+            const isClickable = enableBacktrack && node.isVisited && !node.isCurrent
+            
+            return (
+              <g
+                key={node.id}
+                className={isClickable ? 'cursor-pointer' : 'cursor-default'}
+                onClick={() => {
+                  if (isClickable) {
+                    onNodeClick?.(node.id)
+                  }
+                }}
+                onMouseEnter={() => setHoveredNode(node.id)}
+                onMouseLeave={() => setHoveredNode(null)}
               >
-                {node.label}
-              </text>
-
-              {/* 当前位置指示器 */}
-              {node.isCurrent && (
-                <circle
-                  cx={node.x + node.width / 2}
-                  cy={node.y - 5}
-                  r="3"
-                  fill="#f59e0b"
+                {/* 节点背景 */}
+                <rect
+                  x={node.x}
+                  y={node.y}
+                  width={node.width}
+                  height={node.height}
+                  rx="6"
+                  fill={
+                    node.isCurrent
+                      ? '#fef3c7'
+                      : node.isVisited
+                      ? '#dcfce7'
+                      : '#f3f4f6'
+                  }
+                  stroke={
+                    node.isCurrent
+                      ? '#f59e0b'
+                      : node.isVisited
+                      ? '#22c55e'
+                      : '#d1d5db'
+                  }
+                  strokeWidth={node.isCurrent ? 2 : 1}
+                  opacity={hoveredNode === node.id && isClickable ? 0.8 : 1}
+                  style={{
+                    transition: 'opacity 0.2s',
+                  }}
                 />
-              )}
-            </g>
-          ))}
+
+                {/* 节点文本 */}
+                <text
+                  x={node.x + node.width / 2}
+                  y={node.y + node.height / 2 + 4}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fill={
+                    node.isCurrent
+                      ? '#92400e'
+                      : node.isVisited
+                      ? '#166534'
+                      : '#6b7280'
+                  }
+                >
+                  {node.label}
+                </text>
+
+                {/* 当前位置指示器 */}
+                {node.isCurrent && (
+                  <circle
+                    cx={node.x + node.width / 2}
+                    cy={node.y - 5}
+                    r="3"
+                    fill="#f59e0b"
+                  />
+                )}
+
+                {/* 可回溯提示 */}
+                {hoveredNode === node.id && isClickable && (
+                  <text
+                    x={node.x + node.width / 2}
+                    y={node.y + node.height + 15}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fill="#6b7280"
+                  >
+                    点击回溯
+                  </text>
+                )}
+              </g>
+            )
+          })}
         </svg>
       </div>
 

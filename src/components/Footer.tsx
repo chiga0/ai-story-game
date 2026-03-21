@@ -8,11 +8,27 @@ export default function Footer() {
       <div className="page-wrap flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
           <p className="m-0 text-sm">&copy; {year} AI Story Game. All rights reserved.</p>
-          <Link to="/privacy" className="text-sm text-[var(--lagoon-deep)] hover:underline">
-            隐私政策
-          </Link>
+          <div className="flex items-center gap-3 text-sm">
+            <Link to="/terms" className="text-[var(--lagoon-deep)] hover:underline">
+              用户协议
+            </Link>
+            <span className="text-[var(--line)]">|</span>
+            <Link to="/privacy" className="text-[var(--lagoon-deep)] hover:underline">
+              隐私政策
+            </Link>
+          </div>
         </div>
-        <p className="island-kicker m-0">Built with TanStack Start</p>
+        {/* 年龄分级标签 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1 bg-[var(--surface)] border border-[var(--line)] rounded-lg">
+            <span className="text-lg">📋</span>
+            <div className="text-xs">
+              <p className="font-semibold text-[var(--sea-ink)]">年龄分级：12+</p>
+              <p className="text-[var(--sea-ink-soft)]">适合 12 岁及以上用户</p>
+            </div>
+          </div>
+          <p className="island-kicker m-0">Built with TanStack Start</p>
+        </div>
       </div>
       <div className="mt-4 flex justify-center gap-4">
         <a

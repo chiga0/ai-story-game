@@ -7,6 +7,13 @@
 // 类型定义
 // ============================================
 
+export interface KeyChoice {
+  /** 选择文本 */
+  text: string
+  /** 选择影响描述 */
+  impact?: string
+}
+
 export interface ShareCardData {
   /** 剧本标题 */
   scriptTitle: string
@@ -26,6 +33,12 @@ export interface ShareCardData {
   genre?: string
   /** 剧本 ID */
   scriptId?: string
+  /** 关键选择路径（新增） */
+  keyChoices?: KeyChoice[]
+  /** 结局类型标签（如"好结局"、"坏结局"） */
+  endingTag?: string
+  /** 角色关系摘要 */
+  relationshipSummary?: string
 }
 
 export interface GameRecord {
@@ -152,14 +165,57 @@ function drawMultilineText(
 // ============================================
 
 /**
- * 生成分享卡片（Canvas）
+ * 绘制选择路径（带箭头连接）
+ */
+function drawChoicePath(
+  ctx: CanvasRenderingContext2D,
+  choices: KeyChoice[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  colors: { primary: string; secondary: string; accent: string }
+): number {
+  const lineHeight = 28
+  const bulletWidth = 20
+  let currentY = y
+
+  choices.slice(0, 3).forEach((choice, index) => {
+    // 绘制序号圆圈
+    ctx.beginPath()
+    ctx.arc(x + 10, currentY - 8, 10, 0, Math.PI * 2)
+    ctx.fillStyle = colors.accent
+    ctx.fill()
+    
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'center'
+    ctx.fillText(`${index + 1}`, x + 10, currentY - 3)
+    
+    // 绘制选择文本
+    ctx.textAlign = 'left'
+    ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    
+    const truncatedText = choice.text.length > 25 
+      ? choice.text.substring(0, 25) + '...' 
+      : choice.text
+    ctx.fillText(`→ ${truncatedText}`, x + 28, currentY)
+    
+    currentY += lineHeight
+  })
+  
+  return currentY
+}
+
+/**
+ * 生成分享卡片（Canvas）- 增强版
  * @param data 分享卡片数据
  * @returns Blob 对象
  */
 export async function generateShareCard(data: ShareCardData): Promise<Blob> {
-  // 创建 Canvas
+  // 创建 Canvas - 稍微增加高度以容纳选择路径
   const width = 1200
-  const height = 630
+  const height = data.keyChoices && data.keyChoices.length > 0 ? 700 : 630
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -182,78 +238,122 @@ export async function generateShareCard(data: ShareCardData): Promise<Blob> {
   ctx.fillStyle = colors.accent
   ctx.fillRect(40, 40, 8, height - 80)
 
-  // 绘制标题
-  ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  // 绘制标题区域
+  ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   ctx.fillStyle = '#ffffff'
   ctx.textAlign = 'left'
-  ctx.fillText(data.scriptTitle, 80, 120)
+  ctx.fillText(data.scriptTitle, 80, 105)
 
-  // 绘制结局标签
-  ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  ctx.fillStyle = colors.accent
-  ctx.fillText('🏆 结局', 80, 180)
+  // 绘制结局标签和类型
+  const tagX = 80
+  const tagY = 140
+  
+  // 结局类型标签（如有）
+  if (data.endingTag) {
+    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    const tagWidth = ctx.measureText(data.endingTag).width + 24
+    roundRect(ctx, tagX, tagY - 22, tagWidth, 28, 14)
+    ctx.fillStyle = colors.accent
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(data.endingTag, tagX + 12, tagY - 2)
+  }
 
   // 绘制结局标题
-  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(data.endingTitle, 80, 230)
+  ctx.fillText(`🏆 ${data.endingTitle}`, 80, 200)
 
-  // 绘制结局描述
-  ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-  drawMultilineText(ctx, data.endingDescription, 80, 280, 500, 30)
+  // 绘制结局描述（限制行数）
+  ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'
+  const descLines = 2
+  let descY = 235
+  const descMaxWidth = 480
+  const descText = data.endingDescription.length > 100 
+    ? data.endingDescription.substring(0, 100) + '...'
+    : data.endingDescription
+  drawMultilineText(ctx, descText, 80, descY, descMaxWidth, 26)
+
+  // 绘制关键选择路径（新增）
+  if (data.keyChoices && data.keyChoices.length > 0) {
+    const pathY = 320
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = colors.accent
+    ctx.fillText('📍 我的抉择之路', 80, pathY)
+    
+    drawChoicePath(ctx, data.keyChoices, 80, pathY + 30, descMaxWidth, colors)
+  }
 
   // 绘制统计数据区域
-  const statsX = 650
-  const statsY = 120
+  const statsX = 620
+  const statsY = 100
+
+  // 统计卡片背景
+  roundRect(ctx, statsX - 20, statsY - 30, 560, 180, 12)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+  ctx.fill()
 
   // 游戏时长
-  ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
   ctx.textAlign = 'left'
-  ctx.fillText('游戏时长', statsX, statsY)
-  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.fillText('⏱️ 游戏时长', statsX, statsY)
+  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(`${data.playTime} 分钟`, statsX, statsY + 45)
+  ctx.fillText(`${data.playTime} 分钟`, statsX, statsY + 38)
 
   // 选择次数
-  ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-  ctx.fillText('关键选择', statsX, statsY + 100)
-  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
+  ctx.fillText('🎯 关键选择', statsX + 180, statsY)
+  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(`${data.choices} 次`, statsX, statsY + 145)
+  ctx.fillText(`${data.choices} 次`, statsX + 180, statsY + 38)
 
   // 成就数量
   if (data.achievements.length > 0) {
-    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-    ctx.fillText('获得成就', statsX, statsY + 200)
-    ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.fillText('🏅 获得成就', statsX + 360, statsY)
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     ctx.fillStyle = colors.accent
-    ctx.fillText(`${data.achievements.length} 个`, statsX, statsY + 245)
+    ctx.fillText(`${data.achievements.length} 个`, statsX + 360, statsY + 38)
   }
 
   // 绘制成就列表（最多显示3个）
   if (data.achievements.length > 0) {
-    ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+    ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)'
     data.achievements.slice(0, 3).forEach((achievement, index) => {
-      const y = statsY + 290 + index * 30
-      ctx.fillText(`⭐ ${achievement}`, statsX, y)
+      const y = statsY + 80 + index * 26
+      const truncatedAchievement = achievement.length > 20
+        ? achievement.substring(0, 20) + '...'
+        : achievement
+      ctx.fillText(`✨ ${truncatedAchievement}`, statsX, y)
     })
   }
 
+  // 绘制角色关系摘要（如有）
+  if (data.relationshipSummary) {
+    ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+    const summaryY = statsY + 160
+    ctx.fillText(`💬 ${data.relationshipSummary}`, statsX, summaryY)
+  }
+
   // 绘制底部品牌信息
-  ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
+  ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
   ctx.textAlign = 'center'
-  ctx.fillText('AI Story Game - 互动剧情游戏', width / 2, height - 50)
+  ctx.fillText('🎮 AI Story Game - 你的选择，定义故事', width / 2, height - 45)
 
   // 玩家名称（可选）
   if (data.playerName) {
     ctx.textAlign = 'left'
-    ctx.fillText(`玩家: ${data.playerName}`, 80, height - 50)
+    ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.fillText(`👤 ${data.playerName}`, 80, height - 45)
   }
 
   // 转换为 Blob
@@ -333,7 +433,27 @@ export async function shareToPlatform(
   platform: SharePlatform,
   data: ShareCardData
 ): Promise<void> {
-  const shareText = `我在「${data.scriptTitle}」中达成了「${data.endingTitle}」结局！游玩了 ${data.playTime} 分钟，做出了 ${data.choices} 次关键选择。`
+  // 构建更吸引人的分享文案
+  let shareText = `我在「${data.scriptTitle}」中达成了「${data.endingTitle}」结局！`
+  
+  // 添加结局类型标签
+  if (data.endingTag) {
+    shareText += `\n${data.endingTag}`
+  }
+  
+  // 添加关键选择信息
+  if (data.keyChoices && data.keyChoices.length > 0) {
+    shareText += `\n\n我的关键选择：`
+    data.keyChoices.slice(0, 3).forEach((choice, i) => {
+      shareText += `\n${i + 1}. ${choice.text}`
+    })
+  }
+  
+  shareText += `\n\n⏱️ 游玩 ${data.playTime} 分钟 · 🎯 ${data.choices} 次选择`
+  
+  if (data.achievements.length > 0) {
+    shareText += ` · 🏅 ${data.achievements.length} 个成就`
+  }
 
   switch (platform) {
     case 'wechat': {

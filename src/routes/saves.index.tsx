@@ -46,7 +46,7 @@ function SavesPage() {
           我的存档
         </h1>
         <p className="text-[var(--sea-ink-soft)] mt-2">
-          共 {saves.length} 个存档
+          共 {saves.length} 个存档（最多支持 10 个存档位）
         </p>
       </div>
 

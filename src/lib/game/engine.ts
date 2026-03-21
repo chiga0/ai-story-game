@@ -221,6 +221,39 @@ export class GameEngine {
     if (!this.state) return 0
     return this.state.relationships[characterId] || 0
   }
+
+  /**
+   * 回溯到指定场景
+   * @param sceneId 目标场景ID
+   * @returns 是否成功回溯
+   */
+  backtrackToScene(sceneId: string): boolean {
+    if (!this.script || !this.state) return false
+
+    // 检查目标场景是否在历史记录中
+    const historyIndex = this.state.history.findIndex(h => h.sceneId === sceneId)
+    if (historyIndex === -1) {
+      // 如果不在历史记录中，检查是否是已访问场景的相邻节点
+      const visitedSceneIds = new Set(this.state.history.map(h => h.sceneId))
+      if (!visitedSceneIds.has(sceneId)) {
+        console.warn(`场景 ${sceneId} 未被访问过，无法回溯`)
+        return false
+      }
+    }
+
+    // 找到目标场景在历史中的位置
+    if (historyIndex !== -1) {
+      // 截断历史到目标场景之后
+      this.state.history = this.state.history.slice(0, historyIndex + 1)
+      
+      // 恢复到目标场景
+      this.state.currentScene = sceneId
+      
+      return true
+    }
+
+    return false
+  }
 }
 
 /**

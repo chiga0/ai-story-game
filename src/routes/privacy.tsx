@@ -77,7 +77,7 @@ function PrivacyPage() {
           <div>
             <h2 className="text-xl font-semibold text-[var(--sea-ink)] mb-3">7. 儿童隐私</h2>
             <p className="leading-relaxed">
-              本应用不面向 13 岁以下儿童。如果您是家长或监护人，发现您的孩子未经授权使用了本应用，请联系我们。
+              本应用适合 12 岁及以上用户。如果您是家长或监护人，发现您的孩子未经授权使用了本应用，请联系我们。
             </p>
           </div>
 

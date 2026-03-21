@@ -58,12 +58,16 @@ export interface AchievementData {
 export interface AchievementStats {
   /** 完成的游戏数量 */
   gamesCompleted: number
+  /** 完成的剧本ID列表（去重） */
+  completedScripts: string[]
   /** 发现的场景总数 */
   scenesDiscovered: string[]
   /** 收集的线索总数 */
   totalCluesCollected: number
   /** 达成的结局 */
   endingsReached: string[]
+  /** 每个剧本达成的结局 */
+  scriptEndings: Record<string, string[]>
   /** 最快完成时间（毫秒） */
   fastestCompletion: number | null
 }
@@ -85,23 +89,31 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: 'progress',
     condition: '完成任意一个剧本',
   },
+  {
+    id: 'STORY_COLLECTOR',
+    name: '故事收藏家',
+    description: '完成 3 个不同的剧本',
+    icon: '📚',
+    category: 'progress',
+    condition: '完成所有 3 个剧本',
+  },
 
   // === 探索类成就 ===
   {
     id: 'EXPLORER',
     name: '探险家',
-    description: '在神秘古堡中发现所有场景',
+    description: '在任意剧本中发现 10+ 个场景',
     icon: '🗺️',
     category: 'exploration',
-    condition: '在神秘古堡中发现所有 15+ 个场景',
+    condition: '在一次游戏中探索至少 10 个不同场景',
   },
   {
     id: 'SECRET_FINDER',
     name: '秘密发现者',
-    description: '发现所有隐藏场景',
+    description: '发现隐藏场景或秘密通道',
     icon: '🔍',
     category: 'exploration',
-    condition: '发现密室和秘密通道',
+    condition: '发现游戏中的隐藏内容',
     hidden: true,
   },
 
@@ -109,18 +121,18 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'SHERLOCK',
     name: '福尔摩斯',
-    description: '在单次游戏中收集 10+ 线索',
+    description: '在单次游戏中收集 5+ 线索',
     icon: '🔎',
     category: 'collection',
-    condition: '在一次游戏中收集至少 10 个线索',
+    condition: '在一次游戏中收集至少 5 个线索',
   },
   {
     id: 'MASTER_DETECTIVE',
     name: '神探',
-    description: '在单次游戏中收集 15+ 线索',
+    description: '在单次游戏中收集 10+ 线索',
     icon: '🏆',
     category: 'collection',
-    condition: '在一次游戏中收集至少 15 个线索',
+    condition: '在一次游戏中收集至少 10 个线索',
     hidden: true,
   },
 
@@ -128,18 +140,18 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'SPEEDRUNNER',
     name: '速通达人',
-    description: '在 15 分钟内完成任意剧本',
+    description: '在 10 分钟内完成任意剧本',
     icon: '⚡',
     category: 'speed',
-    condition: '在 15 分钟内完成一个剧本',
+    condition: '在 10 分钟内完成一个剧本',
   },
   {
     id: 'LIGHTNING_FAST',
     name: '闪电侠',
-    description: '在 10 分钟内完成任意剧本',
+    description: '在 5 分钟内完成任意剧本',
     icon: '💨',
     category: 'speed',
-    condition: '在 10 分钟内完成一个剧本',
+    condition: '在 5 分钟内完成一个剧本',
     hidden: true,
   },
 
@@ -147,18 +159,18 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'PERFECT_ENDING',
     name: '完美结局',
-    description: '达成最佳结局',
+    description: '达成任意剧本的最佳结局',
     icon: '✨',
     category: 'ending',
-    condition: '在神秘古堡中达成"完美侦探"结局',
+    condition: '在任意剧本中达成最佳结局',
   },
   {
     id: 'ALL_ENDINGS',
-    name: '全结局大师',
-    description: '解锁神秘古堡的所有结局',
+    name: '多结局探索者',
+    description: '在任意剧本中解锁 3 个不同结局',
     icon: '🎖️',
     category: 'ending',
-    condition: '在神秘古堡中解锁所有 4 个结局',
+    condition: '在同一个剧本中解锁 3 个结局',
   },
   {
     id: 'BAD_ENDING',
@@ -169,6 +181,15 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: '达成任意一个坏结局',
     hidden: true,
   },
+  {
+    id: 'MYSTERY_MASTER',
+    name: '古堡侦探',
+    description: '在神秘古堡中解锁所有结局',
+    icon: '🏰',
+    category: 'ending',
+    condition: '在神秘古堡中解锁所有 4 个结局',
+    hidden: true,
+  },
 ]
 
 // ============================================
@@ -176,11 +197,22 @@ export const ACHIEVEMENTS: Achievement[] = [
 // ============================================
 
 /**
+ * 最佳结局ID列表
+ */
+const PERFECT_ENDINGS = ['perfect-ending', 'dragon-friend', 'good-ending']
+
+/**
+ * 坏结局ID列表
+ */
+const BAD_ENDINGS = ['bad-ending', 'failed-ending', 'dragon-slayer']
+
+/**
+ * 隐藏场景ID列表（用于SECRET_FINDER成就）
+ */
+const SECRET_SCENES = ['secret-room', 'secret-passage', 'library-hidden', 'basement-wall']
+
+/**
  * 检查游戏结束时应解锁的成就
- * @param scriptId 剧本 ID
- * @param gameState 游戏状态
- * @param currentData 当前成就数据
- * @returns 新解锁的成就列表
  */
 export function checkAchievements(
   scriptId: string,
@@ -196,77 +228,91 @@ export function checkAchievements(
   const unlockedIds = new Set(currentData.unlocked.map((a) => a.id))
   const gameTime = Date.now() - gameState.startTime
   const cluesCollected = gameState.attributes.clue || 0
-  const scenesVisited = gameState.history.map((h) => h.sceneId)
+  const uniqueScenes = new Set(gameState.history.map((h) => h.sceneId))
 
-  // 检查 FIRST_GAME
+  // === 进度类成就 ===
+  
+  // FIRST_GAME: 完成第一个剧本
   if (!unlockedIds.has('FIRST_GAME')) {
     newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'FIRST_GAME')!)
   }
 
-  // 检查 SHERLOCK (10+ 线索)
-  if (!unlockedIds.has('SHERLOCK') && cluesCollected >= 10) {
-    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SHERLOCK')!)
+  // STORY_COLLECTOR: 完成3个不同剧本
+  const updatedCompletedScripts = new Set(currentData.stats.completedScripts || [])
+  updatedCompletedScripts.add(scriptId)
+  if (!unlockedIds.has('STORY_COLLECTOR') && updatedCompletedScripts.size >= 3) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'STORY_COLLECTOR')!)
   }
 
-  // 检查 MASTER_DETECTIVE (15+ 线索)
-  if (!unlockedIds.has('MASTER_DETECTIVE') && cluesCollected >= 15) {
-    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'MASTER_DETECTIVE')!)
+  // === 探索类成就 ===
+  
+  // EXPLORER: 探索10+场景
+  if (!unlockedIds.has('EXPLORER') && uniqueScenes.size >= 10) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'EXPLORER')!)
   }
 
-  // 检查 SPEEDRUNNER (15 分钟内)
-  if (!unlockedIds.has('SPEEDRUNNER') && gameTime <= 15 * 60 * 1000) {
-    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SPEEDRUNNER')!)
-  }
-
-  // 检查 LIGHTNING_FAST (10 分钟内)
-  if (!unlockedIds.has('LIGHTNING_FAST') && gameTime <= 10 * 60 * 1000) {
-    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'LIGHTNING_FAST')!)
-  }
-
-  // 检查 EXPLORER (神秘古堡所有场景)
-  if (scriptId === 'mystery-castle' && !unlockedIds.has('EXPLORER')) {
-    const allMysteryCastleScenes = [
-      'start', 'castle-history', 'hall', 'hall-examine', 'safe-attempt',
-      'photo-question', 'butler-secret', 'kitchen', 'chef-conversation',
-      'kitchen-search', 'take-bottle', 'poison-info', 'doctor-info',
-      'library', 'library-search', 'library-hidden', 'secret-letter',
-      'library-desk', 'basement', 'basement-wall', 'basement-search',
-      'garden', 'gardener-conversation', 'key-purpose', 'garden-examine',
-      'garden-box', 'footprint-trail', 'secret-passage', 'attic',
-      'trunk-contents', 'attic-search', 'study', 'letter', 'search',
-      'window-clue', 'maid-conversation', 'maid-secret', 'maid-reassured',
-      'secret-room', 'have-evidence', 'confrontation', 'truth-revealed',
-      'partial-reveal', 'failed-ending',
-    ]
-    const visitedSet = new Set(scenesVisited)
-    const discoveredCount = allMysteryCastleScenes.filter((s) => visitedSet.has(s)).length
-    if (discoveredCount >= 15) {
-      newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'EXPLORER')!)
+  // SECRET_FINDER: 发现隐藏场景
+  if (!unlockedIds.has('SECRET_FINDER')) {
+    const foundSecret = [...uniqueScenes].some(s => SECRET_SCENES.includes(s))
+    if (foundSecret) {
+      newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SECRET_FINDER')!)
     }
   }
 
-  // 检查 SECRET_FINDER (发现密室)
-  if (!unlockedIds.has('SECRET_FINDER') && scenesVisited.includes('secret-room')) {
-    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SECRET_FINDER')!)
+  // === 收集类成就 ===
+  
+  // SHERLOCK: 收集5+线索
+  if (!unlockedIds.has('SHERLOCK') && cluesCollected >= 5) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SHERLOCK')!)
   }
 
-  // 检查 PERFECT_ENDING
-  if (!unlockedIds.has('PERFECT_ENDING') && endingId === 'perfect-ending') {
+  // MASTER_DETECTIVE: 收集10+线索
+  if (!unlockedIds.has('MASTER_DETECTIVE') && cluesCollected >= 10) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'MASTER_DETECTIVE')!)
+  }
+
+  // === 速度类成就 ===
+  
+  // SPEEDRUNNER: 10分钟内完成
+  if (!unlockedIds.has('SPEEDRUNNER') && gameTime <= 10 * 60 * 1000) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'SPEEDRUNNER')!)
+  }
+
+  // LIGHTNING_FAST: 5分钟内完成
+  if (!unlockedIds.has('LIGHTNING_FAST') && gameTime <= 5 * 60 * 1000) {
+    newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'LIGHTNING_FAST')!)
+  }
+
+  // === 结局类成就 ===
+  
+  // PERFECT_ENDING: 达成最佳结局
+  if (!unlockedIds.has('PERFECT_ENDING') && PERFECT_ENDINGS.includes(endingId)) {
     newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'PERFECT_ENDING')!)
   }
 
-  // 检查 BAD_ENDING
-  if (!unlockedIds.has('BAD_ENDING') && endingId === 'bad-ending') {
+  // BAD_ENDING: 达成坏结局
+  if (!unlockedIds.has('BAD_ENDING') && BAD_ENDINGS.includes(endingId)) {
     newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'BAD_ENDING')!)
   }
 
-  // 检查 ALL_ENDINGS
-  if (scriptId === 'mystery-castle' && !unlockedIds.has('ALL_ENDINGS')) {
-    const allEndings = ['perfect-ending', 'good-ending', 'partial-ending', 'bad-ending']
-    const updatedEndings = [...currentData.stats.endingsReached, endingId]
-    const uniqueEndings = new Set(updatedEndings)
-    if (allEndings.every((e) => uniqueEndings.has(e))) {
+  // ALL_ENDINGS: 在同一剧本中解锁3个结局
+  if (!unlockedIds.has('ALL_ENDINGS')) {
+    const scriptEndings = currentData.stats.scriptEndings || {}
+    const updatedEndings = new Set(scriptEndings[scriptId] || [])
+    updatedEndings.add(endingId)
+    if (updatedEndings.size >= 3) {
       newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'ALL_ENDINGS')!)
+    }
+  }
+
+  // MYSTERY_MASTER: 在神秘古堡中解锁所有结局
+  if (scriptId === 'mystery-castle' && !unlockedIds.has('MYSTERY_MASTER')) {
+    const allMysteryEndings = ['perfect-ending', 'good-ending', 'partial-ending', 'bad-ending']
+    const scriptEndings = currentData.stats.scriptEndings || {}
+    const updatedEndings = new Set(scriptEndings[scriptId] || [])
+    updatedEndings.add(endingId)
+    if (allMysteryEndings.every(e => updatedEndings.has(e))) {
+      newlyUnlocked.push(ACHIEVEMENTS.find((a) => a.id === 'MYSTERY_MASTER')!)
     }
   }
 
@@ -286,7 +332,15 @@ export function getAchievementData(): AchievementData {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      return JSON.parse(stored)
+      const data = JSON.parse(stored)
+      // 确保新字段存在
+      if (!data.stats.completedScripts) {
+        data.stats.completedScripts = []
+      }
+      if (!data.stats.scriptEndings) {
+        data.stats.scriptEndings = {}
+      }
+      return data
     }
   } catch (e) {
     console.error('Failed to load achievement data:', e)
@@ -295,9 +349,11 @@ export function getAchievementData(): AchievementData {
     unlocked: [],
     stats: {
       gamesCompleted: 0,
+      completedScripts: [],
       scenesDiscovered: [],
       totalCluesCollected: 0,
       endingsReached: [],
+      scriptEndings: {},
       fastestCompletion: null,
     },
   }
@@ -352,6 +408,14 @@ export function updateGameStats(
 
   data.stats.gamesCompleted += 1
   
+  // 更新完成的剧本列表
+  if (!data.stats.completedScripts) {
+    data.stats.completedScripts = []
+  }
+  if (!data.stats.completedScripts.includes(scriptId)) {
+    data.stats.completedScripts.push(scriptId)
+  }
+  
   // 更新发现的场景
   const newScenes = gameState.history
     .map((h) => h.sceneId)
@@ -364,6 +428,17 @@ export function updateGameStats(
   // 更新结局
   if (!data.stats.endingsReached.includes(endingId)) {
     data.stats.endingsReached.push(endingId)
+  }
+  
+  // 更新每个剧本的结局
+  if (!data.stats.scriptEndings) {
+    data.stats.scriptEndings = {}
+  }
+  if (!data.stats.scriptEndings[scriptId]) {
+    data.stats.scriptEndings[scriptId] = []
+  }
+  if (!data.stats.scriptEndings[scriptId].includes(endingId)) {
+    data.stats.scriptEndings[scriptId].push(endingId)
   }
 
   // 更新最快时间

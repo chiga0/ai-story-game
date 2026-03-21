@@ -54,7 +54,10 @@ export default function ThemeToggle() {
     }
   }, [mode])
 
-  function toggleMode() {
+  function toggleMode(e?: React.MouseEvent) {
+    // 阻止事件冒泡，避免触发父元素的点击事件
+    e?.stopPropagation()
+    
     const nextMode: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light'
     setMode(nextMode)
     applyThemeMode(nextMode)

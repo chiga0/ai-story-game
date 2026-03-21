@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as CreateRouteImport } from './routes/create'
@@ -21,6 +22,11 @@ import { Route as ShareShareIdRouteImport } from './routes/share.$shareId'
 import { Route as ScriptsIdRouteImport } from './routes/scripts.$id'
 import { Route as PlayScriptIdRouteImport } from './routes/play.$scriptId'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
   '/share/$shareId': typeof ShareShareIdRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
   '/share/$shareId': typeof ShareShareIdRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/settings': typeof SettingsRoute
+  '/terms': typeof TermsRoute
   '/play/$scriptId': typeof PlayScriptIdRoute
   '/scripts/$id': typeof ScriptsIdRoute
   '/share/$shareId': typeof ShareShareIdRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/privacy'
     | '/settings'
+    | '/terms'
     | '/play/$scriptId'
     | '/scripts/$id'
     | '/share/$shareId'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/privacy'
     | '/settings'
+    | '/terms'
     | '/play/$scriptId'
     | '/scripts/$id'
     | '/share/$shareId'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/privacy'
     | '/settings'
+    | '/terms'
     | '/play/$scriptId'
     | '/scripts/$id'
     | '/share/$shareId'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   CreateRoute: typeof CreateRoute
   PrivacyRoute: typeof PrivacyRoute
   SettingsRoute: typeof SettingsRoute
+  TermsRoute: typeof TermsRoute
   PlayScriptIdRoute: typeof PlayScriptIdRoute
   ScriptsIdRoute: typeof ScriptsIdRoute
   ShareShareIdRoute: typeof ShareShareIdRoute
@@ -175,6 +188,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateRoute: CreateRoute,
   PrivacyRoute: PrivacyRoute,
   SettingsRoute: SettingsRoute,
+  TermsRoute: TermsRoute,
   PlayScriptIdRoute: PlayScriptIdRoute,
   ScriptsIdRoute: ScriptsIdRoute,
   ShareShareIdRoute: ShareShareIdRoute,

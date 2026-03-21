@@ -3,7 +3,8 @@
  * 捕获组件渲染错误，显示友好提示界面
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react'
+import React, { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 
 interface Props {
   children: ReactNode

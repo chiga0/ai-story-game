@@ -4,6 +4,7 @@ import {
   deleteSave, 
   formatDuration, 
   formatSaveTime,
+  getSceneDisplayName,
   type SaveSlot 
 } from '#/lib/game/save-manager'
 
@@ -50,8 +51,20 @@ export function SaveList({ onLoad, scriptId }: SaveListProps) {
             <div className="flex-1">
               <h3 className="font-bold text-[var(--sea-ink)]">{save.scriptTitle}</h3>
               <div className="mt-2 text-sm text-[var(--sea-ink-soft)] space-y-1">
-                <div>场景: {save.currentScene}</div>
+                <div>场景: {getSceneDisplayName(save.currentScene)}</div>
+                <div>探索: {save.exploredBranches || 0} 个分支</div>
                 <div>时长: {formatDuration(save.playDuration)}</div>
+                {save.attributes && Object.keys(save.attributes).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {Object.entries(save.attributes).map(([key, value]) => (
+                      <span key={key} className="px-2 py-0.5 bg-[var(--bg)] rounded text-xs">
+                        {key === 'clue' ? '线索' : key === 'courage' ? '勇气' : 
+                         key === 'wisdom' ? '智慧' : key === 'trust' ? '信任' : 
+                         key === 'suspicion' ? '怀疑' : key}: {value}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div>保存: {formatSaveTime(save.savedAt)}</div>
               </div>
             </div>

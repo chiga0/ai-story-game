@@ -4,7 +4,7 @@
  */
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   generateScript,
   validateOptions,
@@ -42,11 +42,22 @@ function CreatePage() {
   const [validationResult, setValidationResult] = useState<ReturnType<typeof validateScript> | null>(null)
   const [moderationResult, setModerationResult] = useState<ModerationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // 跟踪选项是否已被用户交互过（用于显示默认选中状态）
+  const [hasInteracted, setHasInteracted] = useState({
+    theme: false,
+    difficulty: false,
+    duration: false,
+  })
 
   // 处理选项变更
   const handleOptionChange = useCallback(
     (key: keyof ScriptGeneratorOptions, value: string | string[]) => {
       setOptions((prev) => ({ ...prev, [key]: value }))
+      // 标记用户已交互
+      if (key === 'theme' || key === 'difficulty' || key === 'duration') {
+        setHasInteracted((prev) => ({ ...prev, [key]: true }))
+      }
     },
     []
   )
@@ -141,20 +152,29 @@ function CreatePage() {
           <div className="space-y-8">
             {/* 主题选择 */}
             <div>
-              <label className="mb-3 block text-sm font-semibold text-[var(--sea-ink)]">
+              <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--sea-ink)]">
                 选择主题
+                {!hasInteracted.theme && (
+                  <span className="text-xs text-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] px-2 py-0.5 rounded-full">
+                    已默认选择
+                  </span>
+                )}
               </label>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(THEME_CONFIG).map(([key, config]) => (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => handleOptionChange('theme', key)}
-                    className={`rounded-xl border p-4 text-left transition ${
+                    className={`relative rounded-xl border p-4 text-left transition ${
                       options.theme === key
-                        ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
+                        ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] ring-2 ring-[var(--lagoon-deep)] ring-opacity-50'
                         : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--lagoon-deep)]'
                     }`}
                   >
+                    {options.theme === key && (
+                      <span className="absolute top-2 right-2 text-[var(--lagoon-deep)]">✓</span>
+                    )}
                     <span className="text-2xl">{config.icon}</span>
                     <h3 className="mt-2 font-semibold text-[var(--sea-ink)]">{config.name}</h3>
                     <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">{config.description}</p>
@@ -165,20 +185,29 @@ function CreatePage() {
 
             {/* 难度选择 */}
             <div>
-              <label className="mb-3 block text-sm font-semibold text-[var(--sea-ink)]">
+              <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--sea-ink)]">
                 选择难度
+                {!hasInteracted.difficulty && (
+                  <span className="text-xs text-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] px-2 py-0.5 rounded-full">
+                    已默认选择
+                  </span>
+                )}
               </label>
               <div className="flex flex-wrap gap-3">
                 {Object.entries(DIFFICULTY_CONFIG).map(([key, config]) => (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => handleOptionChange('difficulty', key)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    className={`relative rounded-full px-4 py-2 text-sm font-medium transition ${
                       options.difficulty === key
-                        ? 'bg-[var(--lagoon-deep)] text-white'
+                        ? 'bg-[var(--lagoon-deep)] text-white ring-2 ring-[var(--lagoon-deep)] ring-opacity-50 ring-offset-2'
                         : 'border border-[var(--line)] bg-[var(--surface)] text-[var(--sea-ink)] hover:border-[var(--lagoon-deep)]'
                     }`}
                   >
+                    {options.difficulty === key && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
+                    )}
                     {config.name}
                   </button>
                 ))}
@@ -190,20 +219,29 @@ function CreatePage() {
 
             {/* 时长选择 */}
             <div>
-              <label className="mb-3 block text-sm font-semibold text-[var(--sea-ink)]">
+              <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--sea-ink)]">
                 选择时长
+                {!hasInteracted.duration && (
+                  <span className="text-xs text-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] px-2 py-0.5 rounded-full">
+                    已默认选择
+                  </span>
+                )}
               </label>
               <div className="flex flex-wrap gap-3">
                 {Object.entries(DURATION_CONFIG).map(([key, config]) => (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => handleOptionChange('duration', key)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    className={`relative rounded-full px-4 py-2 text-sm font-medium transition ${
                       options.duration === key
-                        ? 'bg-[var(--lagoon-deep)] text-white'
+                        ? 'bg-[var(--lagoon-deep)] text-white ring-2 ring-[var(--lagoon-deep)] ring-opacity-50 ring-offset-2'
                         : 'border border-[var(--line)] bg-[var(--surface)] text-[var(--sea-ink)] hover:border-[var(--lagoon-deep)]'
                     }`}
                   >
+                    {options.duration === key && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
+                    )}
                     {config.name} ({config.duration}分钟)
                   </button>
                 ))}
@@ -397,6 +435,23 @@ function CreatePage() {
                 className="rounded-full bg-[var(--lagoon-deep)] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90"
               >
                 保存到剧本库
+              </button>
+              <button
+                onClick={() => {
+                  if (!generatedScript) return
+                  // 先保存到 localStorage，确保游戏页面能加载
+                  const savedScripts = JSON.parse(localStorage.getItem('custom-scripts') || '[]')
+                  // 检查是否已存在，避免重复保存
+                  if (!savedScripts.some((s: any) => s.id === generatedScript.id)) {
+                    savedScripts.push(generatedScript)
+                    localStorage.setItem('custom-scripts', JSON.stringify(savedScripts))
+                  }
+                  // 然后跳转
+                  navigate({ to: '/play/$scriptId', params: { scriptId: generatedScript.id } })
+                }}
+                className="rounded-full bg-gradient-to-r from-[var(--lagoon-deep)] to-[#6366f1] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90"
+              >
+                🎮 立即试玩
               </button>
               <button
                 onClick={handleRegenerate}

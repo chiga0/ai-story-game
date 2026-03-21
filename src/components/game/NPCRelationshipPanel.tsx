@@ -52,7 +52,37 @@ export function NPCRelationshipPanel({
 
   // 获取角色信息
   const getCharacterInfo = (npcId: string) => {
-    return characters[npcId] || { name: npcId, avatar: '👤' }
+    // 如果有角色信息，直接返回
+    if (characters[npcId]) {
+      return characters[npcId]
+    }
+    
+    // 如果没有找到角色信息，尝试从 npcId 生成友好的显示名称
+    // 常见 NPC ID 的中文映射
+    const friendlyNames: Record<string, string> = {
+      'butler': '管家',
+      'chef': '厨师',
+      'maid': '女仆',
+      'gardener': '园丁',
+      'doctor': '医生',
+      'detective': '侦探',
+      'master': '主人',
+      'guest': '客人',
+      'servant': '仆人',
+    }
+    
+    // 检查是否有预定义的友好名称
+    if (friendlyNames[npcId]) {
+      return { name: friendlyNames[npcId], avatar: '👤' }
+    }
+    
+    // 尝试转换 camelCase 为可读名称
+    const readableName = npcId
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim()
+    
+    return { name: readableName, avatar: '👤' }
   }
 
   // 获取关系进度条颜色
@@ -345,7 +375,43 @@ export function CompactRelationshipIndicator({
 
   if (!memory) return null
 
-  const charInfo = characters[npcId] || { name: npcId, avatar: '👤' }
+  // 获取角色信息，使用友好的中文映射
+  const getCharacterInfo = (id: string) => {
+    if (characters[id]) {
+      return characters[id]
+    }
+    
+    // 常见 NPC ID 的中文映射
+    const friendlyNames: Record<string, string> = {
+      'butler': '管家',
+      'chef': '厨师',
+      'maid': '女仆',
+      'gardener': '园丁',
+      'doctor': '医生',
+      'detective': '侦探',
+      'master': '主人',
+      'guest': '客人',
+      'servant': '仆人',
+      'ai': 'AI系统',
+      'engineer': '工程师',
+      'elder': '长老',
+      'dragon': '龙',
+    }
+    
+    if (friendlyNames[id]) {
+      return { name: friendlyNames[id], avatar: '👤' }
+    }
+    
+    // 转换 camelCase 为可读名称
+    const readableName = id
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim()
+    
+    return { name: readableName, avatar: '👤' }
+  }
+
+  const charInfo = getCharacterInfo(npcId)
   const tier = getRelationshipTier(memory.relationshipLevel)
   const tierColor = getRelationshipTierColor(tier)
 

@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, useLocation } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import Footer from '../components/Footer'
@@ -35,6 +35,10 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  // 游戏页面隐藏 Header/Footer，提供沉浸式体验
+  const isGamePage = location.pathname.startsWith('/play/')
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -44,9 +48,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
         <NetworkStatus />
         <ErrorBoundary>
-          <Header />
+          {!isGamePage && <Header />}
           {children}
-          <Footer />
+          {!isGamePage && <Footer />}
           <TanStackDevtools
             config={{
               position: 'bottom-right',

@@ -113,12 +113,18 @@ export async function generateDialogue(context: DialogueContext): Promise<string
   return withRetry(
     async () => {
       const prompt = `你是一个互动游戏的角色扮演助手。
+
+【重要】上下文一致性规则：
+1. 保持地点、人物名称的一致性，不要随意更改
+2. 如果场景名称在前面已确定（如"黑鸦古堡"），后续必须使用相同名称
+3. 保持剧情逻辑连贯，不要出现前后矛盾
+
 当前场景：${context.scene}
 ${context.speaker ? `说话角色：${context.speaker}` : ''}
 玩家历史选择：${context.playerHistory.join(' -> ')}
 游戏状态：${JSON.stringify(context.gameState)}
 
-请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。`
+请生成一段自然的对话或旁白，推动剧情发展。保持简洁有趣，不超过100字。确保名称和地点与上下文一致。`
       
       const text = await callAIServer(prompt)
       
@@ -262,6 +268,11 @@ export async function generateDynamicDialogue(
     return await withRetry(
       async () => {
         const prompt = `${SYSTEM_PROMPTS.dynamicNPCDialogue}
+
+【重要】上下文一致性规则：
+1. 保持地点、人物名称的一致性，不要随意更改名称
+2. 如果场景名称已确定（如"黑鸦古堡"），必须使用相同名称
+3. 保持角色性格和剧情逻辑连贯
 
 当前场景：${scene}
 ${speaker ? `说话角色：${speaker}` : '旁白'}
