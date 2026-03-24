@@ -4,6 +4,7 @@ import { Button } from '#/components/ui/button'
 import { sampleScripts } from '#/data/scripts'
 import type { Script } from '#/types'
 import { getDefaultCoverEmoji, getDefaultCoverGradient } from '#/lib/ai/image-generator'
+import { gameEvents } from '#/lib/analytics/umami'
 
 export const Route = createFileRoute('/scripts/$id')({
   component: ScriptDetailPage,
@@ -196,7 +197,11 @@ function ScriptDetailPage() {
 
           {/* 操作按钮 */}
           <div className="flex gap-4">
-            <Link to="/play/$scriptId" params={{ scriptId: script.id }}>
+            <Link 
+              to="/play/$scriptId" 
+              params={{ scriptId: script.id }}
+              onClick={() => gameEvents.scriptSelect(script.id, script.title, script.genre)}
+            >
               <Button size="lg">开始游戏</Button>
             </Link>
             <Link to="/scripts">

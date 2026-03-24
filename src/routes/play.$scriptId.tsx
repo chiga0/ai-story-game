@@ -8,6 +8,7 @@ import { BranchTree } from '#/components/game/BranchTree'
 import { MuteButton } from '#/components/game/AudioController'
 import { ShareButton } from '#/components/game/ShareCard'
 import { NPCRelationshipPanel } from '#/components/game/NPCRelationshipPanel'
+import { ShareModal } from '#/components/game/ShareModal'
 import {
   checkAchievements,
   updateGameStats,
@@ -33,6 +34,7 @@ import {
   type PlayerStyleAnalysis,
 } from '#/lib/ai/client'
 import { getNPCMemoryManager, type NPCMemoryManager } from '#/lib/game/npc-memory'
+import { gameEvents } from '#/lib/analytics/umami'
 
 export const Route = createFileRoute('/play/$scriptId')({
   component: PlayPage,
@@ -50,6 +52,8 @@ function PlayPage() {
   const [scriptTitle, setScriptTitle] = useState('')
   const [currentEndingId, setCurrentEndingId] = useState<string | null>(null)
   const [pendingAchievements, setPendingAchievements] = useState<Achievement[]>([])
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [endingAchievements, setEndingAchievements] = useState<Achievement[]>([])
   const [showBranchTree, setShowBranchTree] = useState(true)
   const [prevSceneId, setPrevSceneId] = useState<string | null>(null)
   
@@ -246,6 +250,9 @@ function PlayPage() {
         setCurrentScene(gameEngine.getCurrentScene())
         setChoices(gameEngine.getChoices())
         setLoading(false)
+        
+        // 追踪游戏开始事件
+        gameEvents.start(script.id, script.title, script.genre)
       } catch (err) {
         console.error('Failed to init game:', err)
         setError('游戏初始化失败')
@@ -391,6 +398,16 @@ function PlayPage() {
         const currentState = engine.getState()
         updateGameStats(scriptId, currentState, endingId)
         
+        // 追踪结局达成事件
+        const endingType = getEndingType(endingId)
+        gameEvents.ending(
+          scriptId,
+          endingId,
+          endingType,
+          playTimeMinutes,
+          currentState.history?.length || 0
+        )
+        
         // 检查成就
         const achievementData = getAchievementData()
         const newAchievements = checkAchievements(
@@ -412,10 +429,18 @@ function PlayPage() {
           // 播放成就音效
           playSfx(SoundEffect.ACHIEVEMENT)
           setPendingAchievements(newAchievements)
+          setEndingAchievements(newAchievements)
+        } else {
+          setEndingAchievements([])
         }
         
         // 清除持久化的开始时间
         localStorage.removeItem(startTimeKey)
+        
+        // 延迟显示分享弹窗（让成就通知先显示完）
+        setTimeout(() => {
+          setShowShareModal(true)
+        }, newAchievements.length > 0 ? 3000 : 1000) // 有成就则延迟3秒，否则延迟1秒
       } else {
         setCurrentScene(result.scene || null)
         setChoices(engine.getChoices())
@@ -522,6 +547,24 @@ function PlayPage() {
       return '🌙 普通结局'
     }
     return '🎭 特殊结局'
+  }, [])
+  
+  // 获取结局类型（用于统计分析）
+  const getEndingType = useCallback((endingId: string): string => {
+    const lowerId = endingId.toLowerCase()
+    if (lowerId.includes('good') || lowerId.includes('happy') || lowerId.includes('best')) {
+      return 'good'
+    }
+    if (lowerId.includes('bad') || lowerId.includes('tragic') || lowerId.includes('worst')) {
+      return 'bad'
+    }
+    if (lowerId.includes('secret') || lowerId.includes('hidden')) {
+      return 'secret'
+    }
+    if (lowerId.includes('neutral') || lowerId.includes('normal')) {
+      return 'neutral'
+    }
+    return 'special'
   }, [])
 
   if (loading) {
@@ -771,6 +814,27 @@ function PlayPage() {
           )}
         </div>
       </div>
+
+      {/* 分享引导弹窗 */}
+      {showShareModal && currentEndingId && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          endingTitle={currentEndingId}
+          endingDescription={currentScene?.text?.replace(/^🏆.*?\n\n/, '') || ''}
+          endingTag={getEndingTag(currentEndingId)}
+          scriptTitle={scriptTitle}
+          scriptId={scriptId}
+          playTime={playTimeMinutes}
+          choiceCount={gameState?.history.length || 0}
+          achievements={endingAchievements}
+          genre={currentScript?.genre}
+          onReplay={() => {
+            // 刷新页面以重新开始游戏
+            window.location.href = `/play/${scriptId}`
+          }}
+        />
+      )}
     </div>
   )
 }

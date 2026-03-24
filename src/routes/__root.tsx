@@ -30,6 +30,19 @@ export const Route = createRootRoute({
         href: appCss,
       },
     ],
+    scripts: [
+      // Umami Analytics - 隐私友好的访问统计
+      // 配置环境变量: VITE_UMAMI_WEBSITE_ID 和 VITE_UMAMI_SRC (可选，默认使用 Umami Cloud)
+      ...(import.meta.env.VITE_UMAMI_WEBSITE_ID
+        ? [
+            {
+              src: import.meta.env.VITE_UMAMI_SRC || 'https://analytics.umami.is/script.js',
+              'data-website-id': import.meta.env.VITE_UMAMI_WEBSITE_ID,
+              async: true,
+            },
+          ]
+        : []),
+    ],
   }),
   shellComponent: RootDocument,
 })
