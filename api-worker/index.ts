@@ -20,6 +20,30 @@ interface ImageRequest {
   style?: string
 }
 
+// 超时配置
+const TEXT_TIMEOUT = 60000 // 文本生成 60 秒超时
+const IMAGE_TIMEOUT = 90000 // 图片生成 90 秒超时
+const IMAGE_POLL_INTERVAL = 1500 // 图片轮询间隔 1.5 秒
+const IMAGE_POLL_MAX = 30 // 最多轮询 30 次
+
+/**
+ * 带超时的 fetch
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    return response
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 /**
  * 调用百炼文本 API
  */
@@ -31,19 +55,23 @@ async function generateText(apiKey: string, prompt: string, maxTokens: number): 
   const model = isCodingKey ? 'qwen-turbo' : 'qwen-plus'
   
   try {
-    const response = await fetch(`${baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+    const response = await fetchWithTimeout(
+      `${baseURL}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: maxTokens,
+          temperature: 0.7,
+        }),
       },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
-    })
+      TEXT_TIMEOUT
+    )
     
     if (!response.ok) {
       const error = await response.text()
@@ -53,7 +81,11 @@ async function generateText(apiKey: string, prompt: string, maxTokens: number): 
     const data = await response.json() as any
     const text = data.choices?.[0]?.message?.content || ''
     return json({ success: true, text, error: '' })
-  } catch (error) {
+  } catch (error: any) {
+    // 区分超时和其他错误
+    if (error?.name === 'AbortError') {
+      return json({ success: false, text: '', error: '请求超时，请稍后重试' }, 504)
+    }
     return json({ success: false, text: '', error: String(error) }, 500)
   }
 }
@@ -66,19 +98,23 @@ async function generateImage(apiKey: string, req: ImageRequest): Promise<Respons
   
   try {
     // 创建异步任务
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'X-DashScope-Async': 'enable',
+    const response = await fetchWithTimeout(
+      'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-DashScope-Async': 'enable',
+        },
+        body: JSON.stringify({
+          model: 'wanx2.1-t2i-turbo',
+          input: { prompt },
+          parameters: { size, n, style },
+        }),
       },
-      body: JSON.stringify({
-        model: 'wanx2.1-t2i-turbo',
-        input: { prompt },
-        parameters: { size, n, style },
-      }),
-    })
+      30000 // 创建任务 30 秒超时
+    )
     
     if (!response.ok) {
       const error = await response.text()
@@ -93,7 +129,7 @@ async function generateImage(apiKey: string, req: ImageRequest): Promise<Respons
       if (imageUrl) {
         return json({ success: true, imageUrl })
       }
-      return json({ success: false, error: '图片生成超时' }, 500)
+      return json({ success: false, error: '图片生成超时，请稍后重试' }, 504)
     }
     
     // 同步返回
@@ -102,7 +138,10 @@ async function generateImage(apiKey: string, req: ImageRequest): Promise<Respons
     }
     
     return json({ success: false, error: 'API 返回格式异常' }, 500)
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      return json({ success: false, error: '请求超时，请稍后重试' }, 504)
+    }
     return json({ success: false, error: String(error) }, 500)
   }
 }
@@ -110,14 +149,18 @@ async function generateImage(apiKey: string, req: ImageRequest): Promise<Respons
 /**
  * 轮询图片任务
  */
-async function pollImageTask(apiKey: string, taskId: string, maxAttempts = 30): Promise<string | null> {
+async function pollImageTask(apiKey: string, taskId: string, maxAttempts = IMAGE_POLL_MAX): Promise<string | null> {
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 2000))
+    await new Promise(r => setTimeout(r, IMAGE_POLL_INTERVAL))
     
     try {
-      const response = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
-        headers: { 'Authorization': `Bearer ${apiKey}` },
-      })
+      const response = await fetchWithTimeout(
+        `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`,
+        {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        },
+        10000 // 轮询请求 10 秒超时
+      )
       
       if (!response.ok) continue
       
@@ -128,6 +171,7 @@ async function pollImageTask(apiKey: string, taskId: string, maxAttempts = 30): 
         return data.output?.results?.[0]?.url || null
       }
       if (status === 'FAILED') {
+        console.error('图片生成失败:', data.output?.message)
         return null
       }
     } catch {

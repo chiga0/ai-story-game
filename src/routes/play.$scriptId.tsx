@@ -343,78 +343,99 @@ function PlayPage() {
 
     setIsTyping(true)
 
-    const result = await engine.processChoice(choiceId)
-    if (!result) return
+    // 安全超时保护：确保 isTyping 在 10 秒后被重置，避免用户卡死
+    const safetyTimeout = setTimeout(() => {
+      console.warn('handleChoice safety timeout triggered, resetting isTyping')
+      setIsTyping(false)
+    }, 10000)
 
-    // 记录 NPC 互动（如果有说话者）
-    if (currentScene?.speaker && result.type !== 'ending') {
-      const choice = choices.find(c => c.id === choiceId)
-      if (choice) {
-        npcMemoryManager.addInteraction(currentScene.speaker, {
-          sceneId: currentScene.id,
-          timestamp: Date.now(),
-          playerChoice: choice.text,
-          npcResponse: currentScene.text,
-          sentiment: 'neutral', // 可以通过情感分析确定
+    try {
+      const result = await engine.processChoice(choiceId)
+      if (!result) {
+        // 修复：如果 processChoice 返回 null，重置 isTyping 以避免卡死
+        console.error('processChoice returned null for choiceId:', choiceId)
+        setIsTyping(false)
+        clearTimeout(safetyTimeout)
+        return
+      }
+
+      // 记录 NPC 互动（如果有说话者）
+      if (currentScene?.speaker && result.type !== 'ending') {
+        const choice = choices.find(c => c.id === choiceId)
+        if (choice) {
+          npcMemoryManager.addInteraction(currentScene.speaker, {
+            sceneId: currentScene.id,
+            timestamp: Date.now(),
+            playerChoice: choice.text,
+            npcResponse: currentScene.text,
+            sentiment: 'neutral', // 可以通过情感分析确定
+          })
+        }
+      }
+
+      if (result.type === 'ending') {
+        setCurrentScene({
+          id: 'ending',
+          text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
         })
+        setChoices([])
+        
+        // 记录结局
+        const endingId = result.ending?.id || 'unknown'
+        setCurrentEndingId(endingId)
+        
+        // 播放结局音乐
+        playMusic(BackgroundMusic.ENDING)
+        
+        // 更新统计并检查成就
+        const currentState = engine.getState()
+        updateGameStats(scriptId, currentState, endingId)
+        
+        // 检查成就
+        const achievementData = getAchievementData()
+        const newAchievements = checkAchievements(
+          scriptId,
+          currentState,
+          endingId,
+          achievementData
+        )
+        
+        // 解锁成就
+        for (const achievement of newAchievements) {
+          // 导入 unlockAchievement 函数并调用
+          const { unlockAchievement } = await import('#/lib/game/achievements')
+          unlockAchievement(achievement.id)
+        }
+        
+        // 显示成就通知
+        if (newAchievements.length > 0) {
+          // 播放成就音效
+          playSfx(SoundEffect.ACHIEVEMENT)
+          setPendingAchievements(newAchievements)
+        }
+        
+        // 清除持久化的开始时间
+        localStorage.removeItem(startTimeKey)
+      } else {
+        setCurrentScene(result.scene || null)
+        setChoices(engine.getChoices())
+        
+        // 如果有选择结果效果，播放对应音效
+        if (result.effects && result.effects.length > 0) {
+          playSfx(SoundEffect.ITEM_GAIN)
+        }
       }
-    }
 
-    if (result.type === 'ending') {
-      setCurrentScene({
-        id: 'ending',
-        text: `🏆 ${result.ending?.title}\n\n${result.ending?.description}`,
-      })
-      setChoices([])
+      setGameState(engine.getState())
       
-      // 记录结局
-      const endingId = result.ending?.id || 'unknown'
-      setCurrentEndingId(endingId)
-      
-      // 播放结局音乐
-      playMusic(BackgroundMusic.ENDING)
-      
-      // 更新统计并检查成就
-      const currentState = engine.getState()
-      updateGameStats(scriptId, currentState, endingId)
-      
-      // 检查成就
-      const achievementData = getAchievementData()
-      const newAchievements = checkAchievements(
-        scriptId,
-        currentState,
-        endingId,
-        achievementData
-      )
-      
-      // 解锁成就
-      for (const achievement of newAchievements) {
-        // 导入 unlockAchievement 函数并调用
-        const { unlockAchievement } = await import('#/lib/game/achievements')
-        unlockAchievement(achievement.id)
-      }
-      
-      // 显示成就通知
-      if (newAchievements.length > 0) {
-        // 播放成就音效
-        playSfx(SoundEffect.ACHIEVEMENT)
-        setPendingAchievements(newAchievements)
-      }
-      
-      // 清除持久化的开始时间
-      localStorage.removeItem(startTimeKey)
-    } else {
-      setCurrentScene(result.scene || null)
-      setChoices(engine.getChoices())
-      
-      // 如果有选择结果效果，播放对应音效
-      if (result.effects && result.effects.length > 0) {
-        playSfx(SoundEffect.ITEM_GAIN)
-      }
+      // 清除安全超时
+      clearTimeout(safetyTimeout)
+    } catch (error) {
+      console.error('handleChoice error:', error)
+      setIsTyping(false)
+      clearTimeout(safetyTimeout)
     }
-
-    setGameState(engine.getState())
-  }, [engine, gameState, scriptId, playSfx, playMusic, startTimeKey])
+  }, [engine, gameState, scriptId, playSfx, playMusic, startTimeKey, choices, currentScene, npcMemoryManager])
 
   // 处理分支树节点点击（回溯功能）
   const handleBranchNodeClick = useCallback((sceneId: string) => {
@@ -547,6 +568,8 @@ function PlayPage() {
             collapsible
             onNodeClick={handleBranchNodeClick}
             enableBacktrack={true}
+            endings={currentScript.endings}
+            currentAttributes={gameState?.attributes}
           />
         </div>
       )}
@@ -613,6 +636,8 @@ function PlayPage() {
                     collapsible={false}
                     onNodeClick={handleBranchNodeClick}
                     enableBacktrack={true}
+                    endings={currentScript.endings}
+                    currentAttributes={gameState?.attributes}
                   />
                 )}
               </div>

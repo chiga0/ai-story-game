@@ -1,10 +1,10 @@
 /**
  * 分支树可视化组件
- * 使用 SVG 绘制分支树，显示当前所在位置
+ * 使用 SVG 绘制分支树，显示当前所在位置和可能的结局
  */
 
 import { useState, useMemo, useCallback } from 'react'
-import type { Scene } from '#/types'
+import type { Scene, Ending } from '#/types'
 
 // ============================================
 // 类型定义
@@ -17,6 +17,8 @@ interface BranchNode {
   isVisited: boolean
   isCurrent: boolean
   scene?: Scene
+  /** 可能导致的结局类型 */
+  possibleEndings?: string[]
 }
 
 interface BranchTreeProps {
@@ -36,6 +38,138 @@ interface BranchTreeProps {
   onNodeClick?: (sceneId: string) => void
   /** 是否启用回溯功能 */
   enableBacktrack?: boolean
+  /** 结局列表（用于预测可能的结局） */
+  endings?: Ending[]
+  /** 当前属性状态（用于预测结局） */
+  currentAttributes?: Record<string, number>
+}
+
+// ============================================
+// 结局预测辅助函数
+// ============================================
+
+/**
+ * 获取结局类型标签
+ */
+function getEndingTypeLabel(endingId: string): string {
+  const lowerId = endingId.toLowerCase()
+  if (lowerId.includes('perfect') || lowerId.includes('best')) {
+    return '✨ 完美'
+  }
+  if (lowerId.includes('good') || lowerId.includes('happy')) {
+    return '😊 好结局'
+  }
+  if (lowerId.includes('bad') || lowerId.includes('tragic') || lowerId.includes('worst')) {
+    return '💔 坏结局'
+  }
+  if (lowerId.includes('secret') || lowerId.includes('hidden')) {
+    return '🔮 隐藏'
+  }
+  if (lowerId.includes('partial') || lowerId.includes('neutral')) {
+    return '🌙 普通'
+  }
+  return '🎭 特殊'
+}
+
+/**
+ * 分析从某个场景出发可能到达的结局
+ * 使用深度优先搜索，追踪所有可能的路径
+ */
+function analyzePossibleEndings(
+  scenes: Record<string, Scene>,
+  endings: Ending[],
+  startSceneId: string,
+  currentAttributes: Record<string, number> = {},
+  maxDepth: number = 10,
+  visited: Set<string> = new Set()
+): string[] {
+  // 防止循环和过深递归
+  if (visited.has(startSceneId) || maxDepth <= 0) {
+    return []
+  }
+
+  const scene = scenes[startSceneId]
+  if (!scene) {
+    // 检查是否是结局场景
+    const ending = endings.find(e => e.id === startSceneId || startSceneId.includes(e.id))
+    if (ending) {
+      return [getEndingTypeLabel(ending.id)]
+    }
+    return []
+  }
+
+  // 如果场景没有选择，检查是否是结局
+  if (!scene.choices || scene.choices.length === 0) {
+    const ending = endings.find(e => scene.id.includes(e.id) || e.id.includes(scene.id))
+    if (ending) {
+      return [getEndingTypeLabel(ending.id)]
+    }
+    return []
+  }
+
+  const newVisited = new Set(visited)
+  newVisited.add(startSceneId)
+
+  const possibleEndings: Set<string> = new Set()
+
+  // 遍历所有选择
+  for (const choice of scene.choices) {
+    // 检查选择条件是否可能满足
+    if (choice.condition) {
+      const attr = choice.condition.attribute
+      const min = choice.condition.min
+      const max = choice.condition.max
+      const currentValue = currentAttributes[attr] || 0
+      
+      // 如果当前属性值可能在未来满足条件，也考虑这个路径
+      const couldSatisfy = (min === undefined || currentValue >= min - 5) && 
+                          (max === undefined || currentValue <= max + 5)
+      
+      if (!couldSatisfy) continue
+    }
+
+    // 如果选择有效果，考虑其对结局的影响
+    if (choice.effects) {
+      const newAttributes = { ...currentAttributes }
+      for (const effect of choice.effects) {
+        if (effect.attribute && effect.change) {
+          newAttributes[effect.attribute] = (newAttributes[effect.attribute] || 0) + effect.change
+        }
+      }
+      
+      // 检查是否可能触发某个结局
+      for (const ending of endings) {
+        let possible = true
+        for (const [attr, condition] of Object.entries(ending.condition)) {
+          const value = newAttributes[attr] || 0
+          if (condition.min !== undefined && value < condition.min) {
+            possible = false
+            break
+          }
+          if (condition.max !== undefined && value > condition.max) {
+            possible = false
+            break
+          }
+        }
+        if (possible) {
+          possibleEndings.add(getEndingTypeLabel(ending.id))
+        }
+      }
+    }
+
+    // 递归分析下一个场景
+    const childEndings = analyzePossibleEndings(
+      scenes,
+      endings,
+      choice.nextSceneId,
+      currentAttributes,
+      maxDepth - 1,
+      newVisited
+    )
+    childEndings.forEach(e => possibleEndings.add(e))
+  }
+
+  return Array.from(possibleEndings)
 }
 
 // ============================================
@@ -314,6 +448,8 @@ export function BranchTree({
   collapsible = true,
   onNodeClick,
   enableBacktrack = true,
+  endings = [],
+  currentAttributes = {},
 }: BranchTreeProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
@@ -323,6 +459,12 @@ export function BranchTree({
   const tree = useMemo(() => {
     return buildBranchTree(scenes, startSceneId, visitedSet, currentSceneId, maxDepth)
   }, [scenes, startSceneId, visitedSet, currentSceneId, maxDepth])
+
+  // 分析当前场景可能的结局
+  const possibleEndingsForCurrent = useMemo(() => {
+    if (!endings.length) return []
+    return analyzePossibleEndings(scenes, endings, currentSceneId, currentAttributes)
+  }, [scenes, endings, currentSceneId, currentAttributes])
 
   const layout = useMemo(() => {
     if (!tree) return { nodes: [], edges: [] }
@@ -370,6 +512,23 @@ export function BranchTree({
           <span className="text-gray-400 text-sm">收起</span>
         )}
       </div>
+
+      {/* 可能的结局显示 */}
+      {possibleEndingsForCurrent.length > 0 && (
+        <div className="px-3 py-2 border-b border-[var(--sea-ink-light)] bg-gray-50/50">
+          <div className="text-xs text-gray-500 mb-1">可能的结局：</div>
+          <div className="flex flex-wrap gap-1">
+            {possibleEndingsForCurrent.map((ending, i) => (
+              <span
+                key={i}
+                className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
+              >
+                {ending}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* SVG 画布 */}
       <div className="overflow-auto" style={{ maxHeight: '400px' }}>
